@@ -9,6 +9,10 @@ docs/teacher.html 을 만든다. 시트 배치를 바꾸면 실행: python3 교�
 모든 시트를 두 벌 그린다 — '설치 직후'(빈 시트)와 '몇 주 쓴 뒤'(표본).
 기본은 설치 직후. 동료 선생님이 실제로 받는 상태가 그것이기 때문.
 """
+
+import os
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))  # 저장소 루트 기준
+
 import random
 random.seed(7)
 

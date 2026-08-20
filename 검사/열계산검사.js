@@ -1,7 +1,7 @@
 // Code.gs의 순수 계산 함수만 떼어 실행 (SpreadsheetApp 불필요)
-// 실행: node 열계산검사.js
+// 실행: node 검사/열계산검사.js
 const fs = require('fs');
-const src = fs.readFileSync(__dirname + '/Code.gs', 'utf8');
+const src = fs.readFileSync(__dirname + '/../Code.gs', 'utf8');
 
 // Code.gs가 쓰는 상수를 원본에서 그대로 읽어온다 (검사가 실제 값과 어긋나지 않도록)
 const num = k => Number(src.match(new RegExp('const ' + k + ' = (\\d+)'))[1]);

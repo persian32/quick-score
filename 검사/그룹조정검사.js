@@ -1,7 +1,7 @@
 // Index.html의 그룹 인원 조정 로직만 떼어 검사 (브라우저 불필요)
-// 실행: node 그룹조정검사.js
+// 실행: node 검사/그룹조정검사.js
 const fs = require('fs');
-const html = fs.readFileSync(__dirname + '/Index.html', 'utf8');
+const html = fs.readFileSync(__dirname + '/../Index.html', 'utf8');
 const js = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 // evenSizes / bump 만 추출해서 실행

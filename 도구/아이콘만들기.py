@@ -6,6 +6,10 @@
 4배로 크게 그린 뒤 평균을 내어 줄이는 방식으로 계단현상을 없앤다.
 모서리는 둥글게 하지 않는다 — iOS와 안드로이드가 알아서 깎는다.
 """
+
+import os
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))  # 저장소 루트 기준
+
 import sys, zlib, struct
 
 # 앱 화면의 보라(#6c4ed9)보다 진한 남보라. 금색 대비가 살고 밝은 홈 화면에서도 또렷하다

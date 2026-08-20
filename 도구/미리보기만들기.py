@@ -4,6 +4,10 @@ Index.html 에 가짜 서버를 붙여 docs/preview.html 을 만든다.
 Index.html 을 고칠 때마다 실행:  python3 미리보기만들기.py
 """
 
+import os
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))  # 저장소 루트 기준
+
+
 STUB = r'''
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
