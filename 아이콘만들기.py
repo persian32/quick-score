@@ -62,28 +62,6 @@ def poly(buf, pts, color):
 
 
 # ── 후보 ──────────────────────────────────────
-def podium(n):
-    """시상대 — 가운데가 제일 높고 금색"""
-    buf = blank(n, BG)
-    base = 872
-    rect(buf, 152, 560, 372, base, WHITE, r=20)     # 2등
-    rect(buf, 652, 636, 872, base, WHITE, r=20)     # 3등
-    rect(buf, 402, 400, 622, base, GOLD,  r=20)     # 1등
-    rect(buf, 120, base, 904, base+56, WHITE, r=28) # 바닥
-    circle(buf, 512, 250, 96, GOLD)                 # 1등 머리
-    return buf
-
-def crown(n):
-    """왕관 — 원래 종이 채점표가 '단어왕' 이었다"""
-    buf = blank(n, BG)
-    poly(buf, [(176, 736), (176, 320), (330, 470), (512, 250),
-               (694, 470), (848, 320), (848, 736)], GOLD)
-    rect(buf, 176, 760, 848, 872, GOLD, r=24)
-    circle(buf, 330, 452, 44, WHITE)
-    circle(buf, 512, 380, 52, WHITE)
-    circle(buf, 694, 452, 44, WHITE)
-    return buf
-
 def bars(n):
     """막대 — 그룹별 점수 비교"""
     buf = blank(n, BG)
@@ -106,7 +84,7 @@ def medal(n):
     rect(buf, 402, 748, 622, 792, WHITE, r=16)      # 1 받침
     return buf
 
-VARIANTS = {'podium': podium, 'crown': crown, 'bars': bars, 'medal': medal}
+VARIANTS = {'bars': bars, 'medal': medal}
 
 
 # ── PNG 쓰기 ───────────────────────────────────
