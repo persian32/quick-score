@@ -136,6 +136,9 @@ function verify_(className, password) {
   if (!c || c.password === '' || c.password !== String(password).trim()) {
     throw new Error('비밀번호가 맞지 않습니다.');
   }
+  if (!c.n || c.n < 1) {
+    throw new Error('설정 시트에 ' + c.name + '의 학생수가 비어 있습니다. 선생님께 말씀드리세요.');
+  }
   return c;
 }
 
@@ -409,13 +412,16 @@ function ensureConfigSheet_(ss) {
   const sh = ss.insertSheet(S_CONFIG, 0);
   sh.getRange(1, 1, 1, 4).setValues([['반이름', '비밀번호', '학생수', '그룹당인원']])
     .setFontWeight('bold').setBackground('#e8eaed');
-  // 1반~11반, 25명, 4명씩. 비밀번호는 선생님이 이 시트에서 바로 바꾸면 된다
+  // 반 이름과 그룹당인원 기본값만 채운다.
+  // 비밀번호와 학생수는 반마다 다르므로 일부러 비워둔다 —
+  // 숫자가 들어차 있으면 확인 없이 그냥 넘어가서 엉뚱한 인원으로 돌아간다
   const rows = [];
-  for (var i = 1; i <= 11; i++) rows.push([i + '반', '', 25, 4]);
+  for (var i = 1; i <= 11; i++) rows.push([i + '반', '', '', 4]);
   sh.getRange(2, 1, rows.length, 4).setValues(rows);
   sh.setFrozenRows(1);
-  sh.getRange(2, 2, rows.length, 1).setBackground('#fce8e6')
-    .setNote('반마다 다른 비밀번호를 정해 적으세요. 비어 있으면 그 반은 로그인할 수 없습니다.');
+  sh.getRange(2, 2, rows.length, 2).setBackground('#fce8e6');
+  sh.getRange(1, 2).setNote('반마다 다른 비밀번호를 정해 적으세요. 비어 있으면 그 반은 로그인할 수 없습니다.');
+  sh.getRange(1, 3).setNote('그 반의 마지막 번호를 적으세요. 결석은 신경 쓰지 않아도 됩니다 — 앱이 알아서 뺍니다.\n비어 있으면 그 반은 로그인할 수 없습니다.');
   sh.getRange(1, 4).setNote(
     '숫자 하나(예: 4) → 4명씩 자동으로 나누고 남는 학생은 뒤쪽 그룹에 한 명씩 얹습니다.\n' +
     '25명을 4로 두면 4,4,4,4,4,5 (6그룹)이 됩니다.\n\n' +

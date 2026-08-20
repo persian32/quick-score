@@ -9,17 +9,27 @@ docs/teacher.html 을 만든다. 시트 배치를 바꾸면 실행: python3 교�
 import random
 random.seed(7)
 
-N, SIZES = 25, [4, 4, 4, 4, 4, 5]
 MAX_GROUPS = 10
-CLASSES = ['1반', '2반', '3반']
 SESSIONS, SHOW_ROWS = 4, 8
 LOCKED = {1, 2}
+
+# 반마다 인원이 다르다. 실제 교실이 그렇고, 그룹 분배도 그에 맞춰 달라진다
+COUNT = {'1반':25, '2반':22, '3반':24, '4반':23, '5반':25, '6반':21,
+         '7반':24, '8반':25, '9반':23, '10반':22, '11반':24}
+CLASSES = list(COUNT.keys())
+PW = {'1반':'3141','2반':'2718','3반':'1618','4반':'1414','5반':'2236','6반':'1732',
+      '7반':'2645','8반':'1259','9반':'5772','10반':'6180','11반':'9159'}
+
+def group_sizes(n, g=4):
+    """Code.gs 의 groupSizes_ 와 같은 규칙"""
+    k = max(1, n // g)
+    base, rem = n // k, n % k
+    return [base + (1 if j >= k - rem else 0) for j in range(k)]
 
 COL_LOCK = 2
 def col_student(i): return 2 + i
 def col_summary(j): return col_student(1) + j - 1
-def col_avg(j):     return 2 + N + j
-LAST_COL = col_avg(MAX_GROUPS)
+def col_avg(n, j):  return 2 + n + j
 
 def letter(n):
     s = ''
@@ -27,25 +37,26 @@ def letter(n):
         n, m = divmod(n - 1, 26); s = chr(65 + m) + s
     return s
 
-def spans():
+SPANS = {}
+for cls in CLASSES:
     out, first = [], 1
-    for sz in SIZES:
+    for sz in group_sizes(COUNT[cls]):
         out.append((first, first + sz - 1)); first += sz
-    return out
-SPANS = spans()
+    SPANS[cls] = out
 
 data = {}
 for cls in CLASSES:
     for s in range(1, SESSIONS + 1):
-        data[(cls, s)] = [None if random.random() < 0.07 else random.randint(8, 16) for _ in range(N)]
+        data[(cls, s)] = [None if random.random() < 0.07 else random.randint(8, 16)
+                          for _ in range(COUNT[cls])]
 
 def sess_avg(cls, s, gi):
-    a, b = SPANS[gi]
+    a, b = SPANS[cls][gi]
     v = [x for x in data[(cls, s)][a-1:b] if x is not None]
     return round(sum(v)/len(v), 2) if v else None
 
 def total_avg(cls, gi):
-    a, b = SPANS[gi]
+    a, b = SPANS[cls][gi]
     v = [x for s in range(1, SESSIONS+1) for x in data[(cls, s)][a-1:b] if x is not None]
     return round(sum(v)/len(v), 2) if v else None
 
@@ -53,6 +64,9 @@ def td(txt='', cls=''):
     return f'<td class="{cls}">{txt}</td>'
 
 def sheet_class(cls):
+    N = COUNT[cls]
+    SIZES = group_sizes(N)
+    LAST_COL = col_avg(N, MAX_GROUPS)
     tot = [total_avg(cls, g) for g in range(len(SIZES))]
     ranked = sorted([t for t in tot if t is not None], reverse=True)
     rank = ['' if t is None else ranked.index(t)+1 for t in tot]
@@ -101,15 +115,19 @@ def sheet_class(cls):
     return f'<table class="sheet">{head}{"".join(rows)}</table>'
 
 def sheet_config():
-    head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 5)) + '</tr>'
-    rows = ['<tr class="hdrrow"><th class="rn">1</th>' +
-            ''.join(td(x, 'hdr') for x in ['반이름', '비밀번호', '학생수', '그룹당인원']) + '</tr>']
-    pw = ['3141','2718','1618','1414','2236','1732','2645','1259','5772','6180','9159']
-    for i in range(1, 12):
-        g = '4,4,4,4,4,5' if i == 1 else '4'
-        rows.append(f'<tr><th class="rn">{i+1}</th>' +
-                    td(f'{i}반', 'lbl') + td(pw[i-1], 'pw') + td(25 if i % 2 else 24) + td(g) + '</tr>')
-    return f'<table class="sheet narrow">{head}{"".join(rows)}</table>'
+    def table(rows_data):
+        head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 5)) + '</tr>'
+        rows = ['<tr class="hdrrow"><th class="rn">1</th>' +
+                ''.join(td(x, 'hdr') for x in ['반이름', '비밀번호', '학생수', '그룹당인원']) + '</tr>']
+        for i, (name, pw, n, g) in enumerate(rows_data):
+            rows.append(f'<tr><th class="rn">{i+2}</th>' + td(name, 'lbl') +
+                        td(pw, 'pw') + td(n, 'pw') + td(g) + '</tr>')
+        return f'<table class="sheet narrow">{head}{"".join(rows)}</table>'
+
+    fresh = table([(c, '', '', 4) for c in CLASSES])
+    filled = table([(c, PW[c], COUNT[c], '4,4,4,4,4,5' if c == '1반' else 4) for c in CLASSES])
+    return ('<p class="sub2">설치 직후 — 동료 선생님이 받는 상태</p>' + fresh +
+            '<p class="sub2">비밀번호와 학생수를 채운 뒤</p>' + filled)
 
 def sheet_log():
     head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 7)) + '</tr>'
@@ -135,31 +153,45 @@ def sheet_all():
     rows = ['<tr class="hdrrow"><th class="rn">1</th>' +
             ''.join(td(x, 'hdr') for x in ['반'] + [f'G{j+1}' for j in range(MAX_GROUPS)] + ['1등']) + '</tr>']
     for i, cls in enumerate(CLASSES):
-        tot = [total_avg(cls, g) for g in range(len(SIZES))]
+        k = len(group_sizes(COUNT[cls]))
+        tot = [total_avg(cls, g) for g in range(k)]
         best = max(range(len(tot)), key=lambda j: tot[j])
         cs = [td(cls, 'lbl')]
         for j in range(MAX_GROUPS):
-            cs.append(td(tot[j] if j < len(SIZES) else '', 'avg' + (' best' if j == best else '')))
+            cs.append(td(tot[j] if j < k else '', 'avg' + (' best' if j == best else '')))
         cs.append(td(f'G{best+1}', 'lbl'))
         rows.append(f'<tr><th class="rn">{i+2}</th>' + ''.join(cs) + '</tr>')
-    for i in range(len(CLASSES), 11):
-        rows.append(f'<tr><th class="rn">{i+2}</th>' + td(f'{i+1}반', 'lbl') +
-                    ''.join(td() for _ in range(11)) + '</tr>')
     return f'<table class="sheet narrow">{head}{"".join(rows)}</table>'
 
-TABS = [
- ('설정', sheet_config(), '선생님이 손으로 관리하는 유일한 시트입니다. 비밀번호를 바꾸면 즉시 적용되고 재배포가 필요 없습니다. <b>그룹당인원</b>에 <code>4</code>처럼 숫자 하나를 쓰면 자동으로 나누고, <code>4,4,4,4,4,5</code>처럼 쉼표로 쓰면 그대로 씁니다.'),
- ('1반', sheet_class('1반'), '<b>A(회차)와 B(잠금)는 고정</b>이라 오른쪽으로 아무리 스크롤해도 따라옵니다. 회차가 끝나면 <b>잠금</b>에 체크만 하면 그 회차는 도우미가 못 고칩니다.<br><b>2~4행</b>이 열자마자 보이는 요약이고, 세부 점수는 6행 아래입니다. 노란 칸은 전부 수식이라 손댈 필요가 없습니다. 분홍 칸은 결석이라 평균에서 빠집니다.'),
- ('2반', sheet_class('2반'), '반마다 같은 모양의 시트가 하나씩 생깁니다.'),
- ('로그', sheet_log(), '누가 언제 어느 칸을 뭐에서 뭐로 바꿨는지 전부 남습니다. <b>주황색</b>은 이미 있던 값을 고친 기록이라 특히 눈여겨볼 줄입니다. 그룹 구성 변경과 회차 추가도 남습니다.'),
- ('전체', sheet_all(), '반을 옮겨다니지 않고 한눈에 비교합니다. 코드가 아니라 각 반 시트의 누적 행을 그대로 비추는 수식입니다.'),
-]
+HINT1 = ('<b>A(회차)와 B(잠금)는 고정</b>이라 오른쪽으로 아무리 스크롤해도 따라옵니다. '
+         '회차가 끝나면 <b>잠금</b>에 체크만 하면 그 회차는 도우미가 못 고칩니다.<br>'
+         '<b>2~4행</b>이 열자마자 보이는 요약이고, 세부 점수는 6행 아래입니다. '
+         '노란 칸은 전부 수식이라 손댈 필요가 없습니다. 분홍 칸은 결석이라 평균에서 빠집니다.<br>'
+         '<b>여기 숫자는 몇 주 써본 모습을 흉내낸 표본입니다.</b> 설치 직후에는 전부 비어 있습니다.')
 
-tabs_html = ''.join(f'<button class="tab{" on" if i==1 else ""}" onclick="pick({i})">{t[0]}</button>'
+TABS = [('설정', sheet_config(),
+         '선생님이 손으로 관리하는 유일한 시트입니다. 설치하면 <b>비밀번호와 학생수가 비어 있고</b>(분홍색), '
+         '이 두 칸을 채워야 그 반을 쓸 수 있습니다. 숫자를 미리 넣어두지 않는 이유는, 채워져 있으면 '
+         '확인 없이 넘어가서 엉뚱한 인원으로 돌아가기 때문입니다.<br>'
+         '<b>그룹당인원</b>에 <code>4</code>처럼 숫자 하나를 쓰면 자동으로 나누고, '
+         '<code>4,4,4,4,4,5</code>처럼 쉼표로 쓰면 그대로 씁니다. 비밀번호는 바꾸면 즉시 적용되고 재배포가 필요 없습니다.')]
+for _c in CLASSES:
+    TABS.append((_c, sheet_class(_c),
+                 HINT1 if _c == '1반' else
+                 f'{_c}은 {COUNT[_c]}명이라 그룹이 {"·".join(str(x) for x in group_sizes(COUNT[_c]))}명으로 나뉩니다. '
+                 '반마다 같은 모양의 시트가 하나씩 생깁니다.'))
+TABS.append(('로그', sheet_log(),
+             '누가 언제 어느 칸을 뭐에서 뭐로 바꿨는지 전부 남습니다. <b>주황색</b>은 이미 있던 값을 고친 '
+             '기록이라 특히 눈여겨볼 줄입니다. 그룹 구성 변경과 회차 추가도 남습니다.'))
+TABS.append(('전체', sheet_all(),
+             '반을 옮겨다니지 않고 한눈에 비교합니다. 코드가 아니라 각 반 시트의 누적 행을 그대로 비추는 수식입니다.'))
+
+tabs_html = ''.join(f'<button class="tab{" on" if i==0 else ""}" onclick="pick({i})">{t[0]}</button>'
                     for i, t in enumerate(TABS))
-panes = ''.join(f'<div class="pane{" on" if i==1 else ""}" id="p{i}">'
-                f'<p class="hint">{t[2]}</p><div class="scroll">{t[1]}</div></div>'
-                for i, t in enumerate(TABS))
+def pane(i, t):
+    body = t[1] if t[0] == '설정' else f'<div class="scroll">{t[1]}</div>'
+    return f'<div class="pane{" on" if i==0 else ""}" id="p{i}"><p class="hint">{t[2]}</p>{body}</div>'
+panes = ''.join(pane(i, t) for i, t in enumerate(TABS))
 
 html = f'''<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
@@ -201,6 +233,8 @@ html = f'''<!DOCTYPE html>
  td.pw {{ background:#fce8e6 !important; }}
  td.best {{ background:#d9ead3 !important; font-weight:700; color:#274e13; }}
  td.warn {{ background:#fde9d9 !important; }}
+ .sub2 {{ margin:4px 0 8px; font-size:13px; font-weight:700; color:#3c4043; }}
+ .scroll + .sub2 {{ margin-top:22px; }}
  footer {{ padding:14px 18px 40px; font-size:13px; color:#5f6368; line-height:1.8; }}
 </style></head><body>
 <header>
