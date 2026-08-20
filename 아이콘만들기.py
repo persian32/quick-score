@@ -1,96 +1,151 @@
 # -*- coding: utf-8 -*-
 """
-홈 화면 아이콘 PNG를 만든다.  실행: python3 아이콘만들기.py
+홈 화면 아이콘 PNG를 만든다.  실행: python3 아이콘만들기.py [이름]
 
 외부 라이브러리 없이 zlib + struct 만으로 PNG를 쓴다.
 4배로 크게 그린 뒤 평균을 내어 줄이는 방식으로 계단현상을 없앤다.
-
-디자인: 채점표. 보라 바탕 위 흰 종이, 금색 머리띠, 3x3 칸,
-        오른쪽 아래 한 칸이 금색 = 1등 그룹.
 모서리는 둥글게 하지 않는다 — iOS와 안드로이드가 알아서 깎는다.
 """
-import zlib, struct
+import sys, zlib, struct
 
-PURPLE = (0x6c, 0x4e, 0xd9)
+# 앱 화면의 보라(#6c4ed9)보다 진한 남보라. 금색 대비가 살고 밝은 홈 화면에서도 또렷하다
+BG     = (0x35, 0x27, 0x7a)
 WHITE  = (0xff, 0xff, 0xff)
-GOLD   = (0xf2, 0xb7, 0x05)
-INK    = (0x21, 0x1b, 0x33)
+GOLD   = (0xf5, 0xbe, 0x1a)
 
-S = 4            # 확대 배율
-U = 1024         # 기준 좌표계
+S = 4       # 확대 배율
+U = 1024    # 기준 좌표계
 
-def blank(size, color):
-    return [[color] * size for _ in range(size)]
+
+# ── 그리기 도구 ────────────────────────────────
+def blank(n, color):
+    return [[color] * n for _ in range(n)]
 
 def rect(buf, x0, y0, x1, y1, color, r=0):
-    """모서리 반경 r 인 사각형. 좌표는 U 기준."""
-    n = len(buf)
-    k = n / U
+    n = len(buf); k = n / U
     X0, Y0, X1, Y1, R = x0*k, y0*k, x1*k, y1*k, r*k
     for y in range(max(0, int(Y0)), min(n, int(Y1)+1)):
         for x in range(max(0, int(X0)), min(n, int(X1)+1)):
             if R:
-                # 네 모서리 안쪽 원 밖이면 건너뛴다
                 cx = X0+R if x < X0+R else (X1-R if x > X1-R else x)
                 cy = Y0+R if y < Y0+R else (Y1-R if y > Y1-R else y)
                 if (x-cx)**2 + (y-cy)**2 > R*R:
                     continue
             buf[y][x] = color
 
-def downsample(buf, out_size):
-    n = len(buf)
-    f = n // out_size
-    out = []
-    for oy in range(out_size):
+def circle(buf, cx, cy, rad, color):
+    n = len(buf); k = n / U
+    CX, CY, R = cx*k, cy*k, rad*k
+    for y in range(max(0, int(CY-R)), min(n, int(CY+R)+1)):
+        dy = y - CY
+        w = (R*R - dy*dy)
+        if w <= 0: continue
+        w = w ** 0.5
+        for x in range(max(0, int(CX-w)), min(n, int(CX+w)+1)):
+            buf[y][x] = color
+
+def poly(buf, pts, color):
+    """볼록·오목 상관없이 스캔라인으로 채운다"""
+    n = len(buf); k = n / U
+    P = [(x*k, y*k) for x, y in pts]
+    ys = [p[1] for p in P]
+    for y in range(max(0, int(min(ys))), min(n, int(max(ys))+1)):
+        xs = []
+        for i in range(len(P)):
+            x0, y0 = P[i]; x1, y1 = P[(i+1) % len(P)]
+            if (y0 <= y < y1) or (y1 <= y < y0):
+                xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
+        xs.sort()
+        for i in range(0, len(xs) - 1, 2):
+            for x in range(max(0, int(xs[i])), min(n, int(xs[i+1])+1)):
+                buf[y][x] = color
+
+
+# ── 후보 ──────────────────────────────────────
+def podium(n):
+    """시상대 — 가운데가 제일 높고 금색"""
+    buf = blank(n, BG)
+    base = 872
+    rect(buf, 152, 560, 372, base, WHITE, r=20)     # 2등
+    rect(buf, 652, 636, 872, base, WHITE, r=20)     # 3등
+    rect(buf, 402, 400, 622, base, GOLD,  r=20)     # 1등
+    rect(buf, 120, base, 904, base+56, WHITE, r=28) # 바닥
+    circle(buf, 512, 250, 96, GOLD)                 # 1등 머리
+    return buf
+
+def crown(n):
+    """왕관 — 원래 종이 채점표가 '단어왕' 이었다"""
+    buf = blank(n, BG)
+    poly(buf, [(176, 736), (176, 320), (330, 470), (512, 250),
+               (694, 470), (848, 320), (848, 736)], GOLD)
+    rect(buf, 176, 760, 848, 872, GOLD, r=24)
+    circle(buf, 330, 452, 44, WHITE)
+    circle(buf, 512, 380, 52, WHITE)
+    circle(buf, 694, 452, 44, WHITE)
+    return buf
+
+def bars(n):
+    """막대 — 그룹별 점수 비교"""
+    buf = blank(n, BG)
+    base = 852
+    rect(buf, 168, 592, 344, base, WHITE, r=24)
+    rect(buf, 424, 464, 600, base, WHITE, r=24)
+    rect(buf, 680, 264, 856, base, GOLD,  r=24)
+    rect(buf, 136, base, 888, base+52, WHITE, r=26)
+    return buf
+
+def medal(n):
+    """금메달 1등"""
+    buf = blank(n, BG)
+    poly(buf, [(330, 120), (470, 120), (560, 430), (420, 470)], WHITE)
+    poly(buf, [(554, 120), (694, 120), (604, 470), (464, 430)], WHITE)
+    circle(buf, 512, 640, 268, WHITE)
+    circle(buf, 512, 640, 220, GOLD)
+    rect(buf, 470, 500, 554, 780, WHITE, r=16)      # 숫자 1 세로획
+    poly(buf, [(392, 566), (470, 500), (470, 580), (430, 610)], WHITE)  # 1 삐침
+    rect(buf, 402, 748, 622, 792, WHITE, r=16)      # 1 받침
+    return buf
+
+VARIANTS = {'podium': podium, 'crown': crown, 'bars': bars, 'medal': medal}
+
+
+# ── PNG 쓰기 ───────────────────────────────────
+def downsample(buf, out):
+    f = len(buf) // out
+    rows = []
+    for oy in range(out):
         row = bytearray()
-        for ox in range(out_size):
+        for ox in range(out):
             r = g = b = 0
             for dy in range(f):
                 src = buf[oy*f+dy]
                 for dx in range(f):
-                    c = src[ox*f+dx]
-                    r += c[0]; g += c[1]; b += c[2]
+                    c = src[ox*f+dx]; r += c[0]; g += c[1]; b += c[2]
             t = f*f
             row += bytes((r//t, g//t, b//t))
-        out.append(row)
-    return out
+        rows.append(row)
+    return rows
 
 def write_png(path, size, rows):
     raw = b''.join(b'\x00' + bytes(r) for r in rows)
     def chunk(tag, data):
         body = tag + data
         return struct.pack('>I', len(data)) + body + struct.pack('>I', zlib.crc32(body) & 0xffffffff)
-    ihdr = struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0)   # 8비트 RGB
+    ihdr = struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0)
     with open(path, 'wb') as f:
         f.write(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr)
                 + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
 
-def draw(size):
-    n = size * S
-    buf = blank(n, PURPLE)
 
-    # 흰 종이
-    rect(buf, 148, 108, 876, 916, WHITE, r=72)
-    # 금색 머리띠 (원본 채점표의 SCORE 제목 칸)
-    rect(buf, 148, 108, 876, 300, GOLD, r=72)
-    rect(buf, 148, 240, 876, 300, GOLD)        # 아래쪽 둥근 모서리 메우기
+pick = sys.argv[1] if len(sys.argv) > 1 else None
 
-    # 3x3 칸 — 보라 선으로 나눈다
-    gx0, gy0, gx1, gy1 = 212, 372, 812, 852
-    t = 26                                      # 선 두께
-    for i in range(4):                          # 세로선
-        x = gx0 + (gx1-gx0) * i // 3
-        rect(buf, x - t//2, gy0, x + t//2, gy1, PURPLE)
-    for i in range(4):                          # 가로선
-        y = gy0 + (gy1-gy0) * i // 3
-        rect(buf, gx0, y - t//2, gx1, y + t//2, PURPLE)
-
-    # 오른쪽 아래 칸을 금색으로 = 1등 그룹
-    cw, ch = (gx1-gx0)//3, (gy1-gy0)//3
-    rect(buf, gx0 + 2*cw + t//2, gy0 + 2*ch + t//2, gx1 - t//2, gy1 - t//2, GOLD)
-
-    return downsample(buf, size)
-
-for size in (32, 180, 192, 512):
-    write_png(f'docs/icon-{size}.png', size, draw(size))
-    print(f'✅ docs/icon-{size}.png')
+if pick:                      # 고른 하나를 실제 아이콘으로
+    fn = VARIANTS[pick]
+    for size in (32, 180, 192, 512):
+        write_png(f'docs/icon-{size}.png', size, downsample(fn(size*S), size))
+        print(f'✅ docs/icon-{size}.png  ({pick})')
+else:                         # 후보 전부를 골라보기용으로
+    for name, fn in VARIANTS.items():
+        for size in (180, 512):
+            write_png(f'/tmp/cand-{name}-{size}.png', size, downsample(fn(size*S), size))
+        print(f'✅ /tmp/cand-{name}-*.png')
