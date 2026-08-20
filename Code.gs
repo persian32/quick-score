@@ -147,10 +147,24 @@ function verify_(className, password) {
 //  웹앱 진입점
 // ══════════════════════════════════════════
 
+/**
+ * 웹앱 진입점.
+ *
+ * 주의: Apps Script 는 Index.html 안에 쓴 <meta> 를 전부 무시한다.
+ * 여기 addMetaTag 로 넣은 것만 실제 페이지에 붙는다.
+ * 게다가 허용되는 이름이 viewport / apple-mobile-web-app-capable /
+ * mobile-web-app-capable / google-site-verification 넷뿐이라
+ * 홈 화면 아이콘(<link rel="apple-touch-icon">)은 여기에 달 수 없다.
+ * 그래서 아이콘은 껍데기 페이지(docs/app.html)가 대신 달아준다.
+ */
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('quick-score')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+    // maximum-scale 을 걸면 손으로 확대하는 것을 막게 된다. 접근성상 걸면 안 된다
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .addMetaTag('apple-mobile-web-app-capable', 'yes')
+    .addMetaTag('mobile-web-app-capable', 'yes')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /** 로그인 화면의 반 드롭다운 채우기 (비밀번호 없이 반 이름만) */
