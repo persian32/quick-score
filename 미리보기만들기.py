@@ -119,11 +119,15 @@ function pvTheme(mode) {
 /* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
 function pvLock(on) {
   FK.lock = on ? { 3: true } : {};
-  document.getElementById('pv-lockmsg').textContent = on ? '잠금 있음' : '잠금 없음';
+  document.getElementById('pv-lockmsg').textContent = on
+    ? '3회차 잠금 상태 — 그룹 조정이 막힙니다'
+    : '잠금 해제 — 그룹 인원을 바꿔볼 수 있습니다';
 }
 
 window.addEventListener('load', function () {
   pvTheme('auto');
+  /* 비밀번호를 미리 채워둔다. 미리보기에서 굳이 타이핑할 이유가 없다 */
+  document.getElementById('pw').value = '1234';
   var d = document.createElement('button');
   d.textContent = '🎲 이 그룹 랜덤 채우기';
   d.style.cssText = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:auto;margin:0;' +
@@ -144,27 +148,27 @@ window.addEventListener('load', function () {
 </script>
 '''
 
+BTN = ('margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;'
+       'background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px')
+
 BANNER = (
   '<div id="app">\n'
   '  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;'
-  'padding:12px 13px;font-size:14px;line-height:1.7;margin-bottom:12px;color:var(--dim)">'
-  '<b style="color:var(--ink)">미리보기</b> · 아무 반 + 비밀번호 <b>1234</b><br>'
+  'padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)">'
+  '<b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. '
+  '<b style="color:var(--ink)">들어가기</b>만 누르세요.<br>'
   '점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.'
-  '<div style="display:flex;gap:6px;margin-top:10px">'
-  '<button id="pv-auto" onclick="pvTheme(\'auto\')" style="margin:0;padding:8px;font-size:13px;'
-  'background:var(--card);color:var(--ink);border:1px solid var(--line)">📱 폰 설정</button>'
-  '<button id="pv-light" onclick="pvTheme(\'light\')" style="margin:0;padding:8px;font-size:13px;'
-  'background:var(--card);color:var(--ink);border:1px solid var(--line)">☀️ 밝게</button>'
-  '<button id="pv-dark" onclick="pvTheme(\'dark\')" style="margin:0;padding:8px;font-size:13px;'
-  'background:var(--card);color:var(--ink);border:1px solid var(--line)">🌙 어둡게</button>'
+  '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px">'
+  f'<button id="pv-auto" onclick="pvTheme(\'auto\')" style="{BTN}">📱 폰 설정</button>'
+  f'<button id="pv-light" onclick="pvTheme(\'light\')" style="{BTN}">☀️ 밝게</button>'
+  f'<button id="pv-dark" onclick="pvTheme(\'dark\')" style="{BTN}">🌙 어둡게</button>'
   '</div>'
-  '<div style="display:flex;gap:6px;margin-top:6px;align-items:center">'
-  '<button onclick="pvLock(true)" style="margin:0;padding:8px;font-size:13px;'
-  'background:var(--card);color:var(--ink);border:1px solid var(--line)">🔒 3회차 잠금</button>'
-  '<button onclick="pvLock(false)" style="margin:0;padding:8px;font-size:13px;'
-  'background:var(--card);color:var(--ink);border:1px solid var(--line)">🔓 잠금 해제</button>'
-  '<span id="pv-lockmsg" style="font-size:13px">잠금 있음</span>'
-  '</div></div>')
+  '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">'
+  f'<button onclick="pvLock(true)" style="{BTN}">🔒 3회차 잠금</button>'
+  f'<button onclick="pvLock(false)" style="{BTN}">🔓 잠금 해제</button>'
+  '</div>'
+  '<div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">3회차 잠금 상태 — 그룹 조정이 막힙니다</div>'
+  '</div>')
 
 src = open('Index.html', encoding='utf-8').read()
 out = src.replace('<script>\n// ── 서버 호출', STUB + '\n<script>\n// ── 서버 호출', 1)

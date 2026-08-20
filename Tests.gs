@@ -64,7 +64,7 @@ function runTests() {
       saveGroup(T_CLASS, T_PW, 2, 1, [8, 12, 10]);
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
-      eq(sh.getRange(R_TOTAL, 2).getValue(), 10.8, '그룹1 누적');
+      eq(sh.getRange(R_TOTAL, colSummary_(1)).getValue(), 10.8, '그룹1 누적');
     });
 
     check('순위는 누적 평균이 높은 순', function () {
@@ -75,10 +75,10 @@ function runTests() {
 
     check('잠긴 회차는 저장을 거부한다', function () {
       const sh = ss.getSheetByName(T_CLASS);
-      sh.getRange(sessionRow_(1), colLock_(T_N)).setValue(true);
+      sh.getRange(sessionRow_(1), colLock_()).setValue(true);
       SpreadsheetApp.flush();
       throws(function () { saveGroup(T_CLASS, T_PW, 1, 1, [1, 1, 1]); }, '잠긴 회차');
-      sh.getRange(sessionRow_(1), colLock_(T_N)).setValue(false);
+      sh.getRange(sessionRow_(1), colLock_()).setValue(false);
     });
 
     check('점수가 바뀌면 로그에 남는다', function () {
@@ -115,20 +115,20 @@ function runTests() {
 
     check('확정된 회차가 있으면 그룹을 못 바꾼다', function () {
       const sh = ss.getSheetByName(T_CLASS);
-      sh.getRange(sessionRow_(1), colLock_(T_N)).setValue(true);
+      sh.getRange(sessionRow_(1), colLock_()).setValue(true);
       SpreadsheetApp.flush();
       throws(function () { setGroupSizes(T_CLASS, T_PW, [2, 4]); }, '잠긴 상태에서 그룹 변경');
-      sh.getRange(sessionRow_(1), colLock_(T_N)).setValue(false);
+      sh.getRange(sessionRow_(1), colLock_()).setValue(false);
       SpreadsheetApp.flush();
     });
 
     check('회차를 늘려도 기존 점수와 누적이 유지된다', function () {
       const sh = ss.getSheetByName(T_CLASS);
-      const before = sh.getRange(R_TOTAL, 2).getValue();
+      const before = sh.getRange(R_TOTAL, colSummary_(1)).getValue();
       addSessions(T_CLASS, T_PW, 5);
       SpreadsheetApp.flush();
       eq(sessionCount_(sh), INIT_SESSIONS + 5, '늘어난 회차 수');
-      eq(sh.getRange(R_TOTAL, 2).getValue(), before, '누적 평균');
+      eq(sh.getRange(R_TOTAL, colSummary_(1)).getValue(), before, '누적 평균');
       eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), 10, '1회차 1번 점수');
     });
 
