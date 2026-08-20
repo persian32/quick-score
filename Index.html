@@ -171,6 +171,19 @@
       학기 중에 바꾸면 이미 계산된 평균이 달라집니다.</div>
   </section>
 
+  <!-- 비밀번호가 중간에 바뀐 경우 -->
+  <section id="s-pwchanged" class="screen">
+    <h1>비밀번호가 바뀌었습니다</h1>
+    <div class="sub">선생님께 새 번호를 확인해 주세요</div>
+    <div class="card">
+      <p style="margin:0 0 14px;font-size:17px;line-height:1.7">
+        선생님이 이 반의 비밀번호를 바꾸셨습니다.<br>새 번호로 다시 들어와 주세요.</p>
+      <p style="margin:0;font-size:16px;line-height:1.7;color:var(--accent);font-weight:600">
+        지금까지 넣은 점수는 저장되어 있습니다.</p>
+      <button onclick="backToLogin()">로그인 화면으로</button>
+    </div>
+  </section>
+
   <!-- ④ 순위 -->
   <section id="s-rank" class="screen">
     <h1>누적 순위</h1>
@@ -199,6 +212,24 @@ function show(id) {
 }
 
 var S = { cls: '', pw: '', info: null, session: 0, gi: 0, scores: [] };
+
+/**
+ * 로그인 뒤에 비밀번호가 거부되면 선생님이 번호를 바꾼 것이다.
+ * 그냥 "비밀번호가 맞지 않습니다"만 띄우면 도우미가 자기 잘못인 줄 안다.
+ */
+function failed(elId, e) {
+  var msg = (e && e.message) ? e.message : String(e);
+  if (msg.indexOf('비밀번호') >= 0 && S.info) { show('s-pwchanged'); return; }
+  if (elId) $(elId).textContent = msg;
+  else alert(msg);
+}
+
+function backToLogin() {
+  S.info = null;
+  $('pw').value = '';
+  $('e-login').textContent = '';
+  show('s-login');
+}
 
 // ── 글자 크기: 「가」를 누를 때마다 보통 → 크게 → 아주 크게 → 보통 ──
 var ZOOMS = [1, 1.15, 1.3];
@@ -239,7 +270,7 @@ function openSessions() {
     S.info = info;
     drawSessions();
     show('s-session');
-  });
+  }).catch(function (e) { failed(null, e); });
 }
 
 function drawSessions() {
@@ -257,7 +288,7 @@ function addMore() {
     S.info = info;
     drawSessions();
   }).catch(function (e) {
-    alert(e.message);
+    failed(null, e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 
@@ -332,7 +363,7 @@ $('btn-gsave').onclick = function () {
     S.info = info;
     openSessions();
   }).catch(function (e) {
-    $('e-groups').textContent = e.message;
+    failed('e-groups', e);
   }).then(function () { $('app').classList.remove('busy'); });
 };
 
@@ -345,7 +376,7 @@ function openSession(no) {
     S.gi = 0;
     drawGroup();
     show('s-input');
-  });
+  }).catch(function (e) { failed(null, e); });
 }
 
 function drawGroup() {
@@ -427,7 +458,7 @@ function saveThen(after) {
     S.info.ranking = r.ranking;
     after();
   }).catch(function (e) {
-    $('e-input').textContent = e.message;
+    failed('e-input', e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 

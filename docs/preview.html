@@ -106,7 +106,7 @@
 <body>
 <button id="zoom" title="글자 크기">가</button>
 <div id="app">
-  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요.<br>점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px"><button id="pv-auto" onclick="pvTheme('auto')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">📱 폰 설정</button><button id="pv-light" onclick="pvTheme('light')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">☀️ 밝게</button><button id="pv-dark" onclick="pvTheme('dark')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><button onclick="pvLock(true)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 3회차 잠금</button><button onclick="pvLock(false)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔓 잠금 해제</button></div><div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">3회차 잠금 상태 — 그룹 조정이 막힙니다</div></div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요.<br>점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px"><button id="pv-auto" onclick="pvTheme('auto')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">📱 폰 설정</button><button id="pv-light" onclick="pvTheme('light')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">☀️ 밝게</button><button id="pv-dark" onclick="pvTheme('dark')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><button onclick="pvLock(true)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 3회차 잠금</button><button onclick="pvLock(false)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔓 잠금 해제</button></div><div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"><button onclick="pvPw()" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔑 선생님이 비번을 바꿈</button></div><div id="pv-pwmsg" style="font-size:12.5px;margin-top:7px">비밀번호 1234 — 정상</div></div>
 
   <!-- ① 로그인 -->
   <section id="s-login" class="screen on">
@@ -172,6 +172,19 @@
       학기 중에 바꾸면 이미 계산된 평균이 달라집니다.</div>
   </section>
 
+  <!-- 비밀번호가 중간에 바뀐 경우 -->
+  <section id="s-pwchanged" class="screen">
+    <h1>비밀번호가 바뀌었습니다</h1>
+    <div class="sub">선생님께 새 번호를 확인해 주세요</div>
+    <div class="card">
+      <p style="margin:0 0 14px;font-size:17px;line-height:1.7">
+        선생님이 이 반의 비밀번호를 바꾸셨습니다.<br>새 번호로 다시 들어와 주세요.</p>
+      <p style="margin:0;font-size:16px;line-height:1.7;color:var(--accent);font-weight:600">
+        지금까지 넣은 점수는 저장되어 있습니다.</p>
+      <button onclick="backToLogin()">로그인 화면으로</button>
+    </div>
+  </section>
+
   <!-- ④ 순위 -->
   <section id="s-rank" class="screen">
     <h1>누적 순위</h1>
@@ -186,7 +199,7 @@
 
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
-var FK = { n: 25, g: 4, data: {}, lock: { 3: true }, sessions: 20 };
+var FK = { n: 25, g: 4, data: {}, lock: {}, sessions: 20, pwChanged: false };
 var FK_NAMES = []; for (var i = 1; i <= 11; i++) FK_NAMES.push(i + '반');
 
 function fkSizes(n, g) {   /* Code.gs의 groupSizes_ 와 같은 규칙 */
@@ -223,7 +236,10 @@ function fkRanking(cls) {
   }).filter(Boolean).sort(function (a, b) { return b.avg - a.avg; })
     .map(function (x, i) { x.rank = i + 1; return x; });
 }
-function fkAuth(cls, pw) { if (String(pw).trim() !== '1234') throw { message: '비밀번호가 맞지 않습니다.' }; }
+function fkAuth(cls, pw) {
+  var real = FK.pwChanged ? '5678' : '1234';
+  if (String(pw).trim() !== real) throw { message: '비밀번호가 맞지 않습니다.' };
+}
 
 var FAKE = {
   getClassNames: function () { return FK_NAMES; },
@@ -295,12 +311,20 @@ function pvTheme(mode) {
   });
 }
 
+/* 선생님이 비밀번호를 바꾼 상황 흉내 */
+function pvPw() {
+  FK.pwChanged = !FK.pwChanged;
+  document.getElementById('pv-pwmsg').textContent = FK.pwChanged
+    ? '비밀번호가 1234 → 5678 로 바뀐 상태. 다음 저장에서 안내 화면이 뜹니다'
+    : '비밀번호 1234 — 정상';
+}
+
 /* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
 function pvLock(on) {
   FK.lock = on ? { 3: true } : {};
   document.getElementById('pv-lockmsg').textContent = on
     ? '3회차 잠금 상태 — 그룹 조정이 막힙니다'
-    : '잠금 해제 — 그룹 인원을 바꿔볼 수 있습니다';
+    : '잠금 없음 — 실제 앱의 처음 상태입니다';
 }
 
 window.addEventListener('load', function () {
@@ -344,6 +368,24 @@ function show(id) {
 
 var S = { cls: '', pw: '', info: null, session: 0, gi: 0, scores: [] };
 
+/**
+ * 로그인 뒤에 비밀번호가 거부되면 선생님이 번호를 바꾼 것이다.
+ * 그냥 "비밀번호가 맞지 않습니다"만 띄우면 도우미가 자기 잘못인 줄 안다.
+ */
+function failed(elId, e) {
+  var msg = (e && e.message) ? e.message : String(e);
+  if (msg.indexOf('비밀번호') >= 0 && S.info) { show('s-pwchanged'); return; }
+  if (elId) $(elId).textContent = msg;
+  else alert(msg);
+}
+
+function backToLogin() {
+  S.info = null;
+  $('pw').value = '';
+  $('e-login').textContent = '';
+  show('s-login');
+}
+
 // ── 글자 크기: 「가」를 누를 때마다 보통 → 크게 → 아주 크게 → 보통 ──
 var ZOOMS = [1, 1.15, 1.3];
 var ZLABEL = ['가', '가＋', '가＋＋'];
@@ -383,7 +425,7 @@ function openSessions() {
     S.info = info;
     drawSessions();
     show('s-session');
-  });
+  }).catch(function (e) { failed(null, e); });
 }
 
 function drawSessions() {
@@ -401,7 +443,7 @@ function addMore() {
     S.info = info;
     drawSessions();
   }).catch(function (e) {
-    alert(e.message);
+    failed(null, e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 
@@ -476,7 +518,7 @@ $('btn-gsave').onclick = function () {
     S.info = info;
     openSessions();
   }).catch(function (e) {
-    $('e-groups').textContent = e.message;
+    failed('e-groups', e);
   }).then(function () { $('app').classList.remove('busy'); });
 };
 
@@ -489,7 +531,7 @@ function openSession(no) {
     S.gi = 0;
     drawGroup();
     show('s-input');
-  });
+  }).catch(function (e) { failed(null, e); });
 }
 
 function drawGroup() {
@@ -571,7 +613,7 @@ function saveThen(after) {
     S.info.ranking = r.ranking;
     after();
   }).catch(function (e) {
-    $('e-input').textContent = e.message;
+    failed('e-input', e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 

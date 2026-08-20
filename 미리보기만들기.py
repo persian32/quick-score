@@ -7,7 +7,7 @@ Index.html 을 고칠 때마다 실행:  python3 미리보기만들기.py
 STUB = r'''
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
-var FK = { n: 25, g: 4, data: {}, lock: { 3: true }, sessions: 20 };
+var FK = { n: 25, g: 4, data: {}, lock: {}, sessions: 20, pwChanged: false };
 var FK_NAMES = []; for (var i = 1; i <= 11; i++) FK_NAMES.push(i + '반');
 
 function fkSizes(n, g) {   /* Code.gs의 groupSizes_ 와 같은 규칙 */
@@ -44,7 +44,10 @@ function fkRanking(cls) {
   }).filter(Boolean).sort(function (a, b) { return b.avg - a.avg; })
     .map(function (x, i) { x.rank = i + 1; return x; });
 }
-function fkAuth(cls, pw) { if (String(pw).trim() !== '1234') throw { message: '비밀번호가 맞지 않습니다.' }; }
+function fkAuth(cls, pw) {
+  var real = FK.pwChanged ? '5678' : '1234';
+  if (String(pw).trim() !== real) throw { message: '비밀번호가 맞지 않습니다.' };
+}
 
 var FAKE = {
   getClassNames: function () { return FK_NAMES; },
@@ -116,12 +119,20 @@ function pvTheme(mode) {
   });
 }
 
+/* 선생님이 비밀번호를 바꾼 상황 흉내 */
+function pvPw() {
+  FK.pwChanged = !FK.pwChanged;
+  document.getElementById('pv-pwmsg').textContent = FK.pwChanged
+    ? '비밀번호가 1234 → 5678 로 바뀐 상태. 다음 저장에서 안내 화면이 뜹니다'
+    : '비밀번호 1234 — 정상';
+}
+
 /* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
 function pvLock(on) {
   FK.lock = on ? { 3: true } : {};
   document.getElementById('pv-lockmsg').textContent = on
     ? '3회차 잠금 상태 — 그룹 조정이 막힙니다'
-    : '잠금 해제 — 그룹 인원을 바꿔볼 수 있습니다';
+    : '잠금 없음 — 실제 앱의 처음 상태입니다';
 }
 
 window.addEventListener('load', function () {
@@ -167,7 +178,11 @@ BANNER = (
   f'<button onclick="pvLock(true)" style="{BTN}">🔒 3회차 잠금</button>'
   f'<button onclick="pvLock(false)" style="{BTN}">🔓 잠금 해제</button>'
   '</div>'
-  '<div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">3회차 잠금 상태 — 그룹 조정이 막힙니다</div>'
+  '<div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div>'
+  '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">'
+  f'<button onclick="pvPw()" style="{BTN}">🔑 선생님이 비번을 바꿈</button>'
+  '</div>'
+  '<div id="pv-pwmsg" style="font-size:12.5px;margin-top:7px">비밀번호 1234 — 정상</div>'
   '</div>')
 
 src = open('Index.html', encoding='utf-8').read()
