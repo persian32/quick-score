@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  /* 밝은 테마 */
+  :root {
+    --bg: #f6f4fc; --card: #ffffff; --line: #e4dff1;
+    --ink: #211b33; --dim: #6d6483; --accent: #6c4ed9; --hi: #f1ecfd;
+  }
+  /* 폰이 다크모드면 자동으로 바뀐다. 도우미가 누를 것은 없다 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15131f; --card: #1e1b2b; --line: #322d45;
+      --ink: #ece9f5; --dim: #9a93b3; --accent: #8a68ec; --hi: #2a2440;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    display: flex; justify-content: center;
+  }
+  #app { width: 100%; max-width: 480px; padding: 20px 16px 48px; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+
+  h1 { font-size: 27px; text-align: center; margin: 24px 0 6px; letter-spacing: -.3px; }
+  .sub { text-align: center; color: var(--dim); font-size: 16px; margin-bottom: 26px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+
+  label { display: block; font-size: 15px; color: var(--dim); margin: 16px 0 7px; }
+  select, input[type=password], input[type=number] {
+    width: 100%; font-size: 21px; padding: 16px; border: 1px solid var(--line);
+    border-radius: 12px; background: var(--card); color: var(--ink); font-family: inherit;
+  }
+  button {
+    width: 100%; font-size: 20px; font-weight: 600; padding: 18px; margin-top: 18px;
+    border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-family: inherit;
+  }
+  button:disabled { opacity: .4; }
+  button.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+
+  .err { color: #e06055; font-size: 16px; margin-top: 14px; min-height: 22px; }
+
+  /* 회차 목록 */
+  .slist button { margin: 0 0 11px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .tag { font-size: 15px; font-weight: 400; color: var(--dim); }
+
+  /* 진행 점 */
+  .dots { text-align: center; letter-spacing: 7px; color: var(--line); font-size: 20px; margin: 8px 0 20px; }
+  .dots b { color: var(--accent); }
+
+  .head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
+  .head .who { font-size: 25px; font-weight: 700; }
+  .head .rng { font-size: 16px; color: var(--dim); }
+
+  /* 점수 입력 줄 */
+  .row { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+  .row .no { width: 62px; font-size: 21px; font-weight: 600; }
+  .row input { flex: 1; text-align: center; font-size: 34px; font-weight: 600; padding: 14px 8px; }
+  .row .ab { width: 50px; font-size: 15px; color: var(--dim); text-align: center; }
+
+  .sum { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px;
+         text-align: center; font-size: 19px; }
+  .sum b { font-size: 31px; }
+
+  .nav { display: flex; gap: 10px; }
+  .nav button { flex: 1; }
+  .nav button.back { flex: 0 0 84px; }
+
+  /* 순위 */
+  .rk { display: flex; align-items: center; gap: 12px; padding: 16px 6px; border-bottom: 1px solid var(--line); }
+  .rk:last-child { border-bottom: 0; }
+  .rk .m { width: 46px; font-size: 24px; text-align: center; }
+  .rk .g { flex: 1; font-size: 20px; font-weight: 600; }
+  .rk .v { font-size: 24px; font-weight: 700; }
+  .rk.first { background: var(--hi); border-radius: 12px; }
+
+  /* 글자 크기 조절 — 오른쪽 위 고정 */
+  #zoom {
+    position: fixed; top: 10px; right: 10px; z-index: 50;
+    width: auto; margin: 0; padding: 9px 13px; font-size: 15px; font-weight: 700;
+    background: var(--card); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 20px; opacity: .9;
+  }
+
+  /* 그룹 인원 조정 */
+  .grow { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .grow:last-of-type { border-bottom: 0; }
+  .grow .gl { flex: 1; font-size: 19px; font-weight: 600; }
+  .grow .gr { font-size: 15px; color: var(--dim); margin-right: 4px; }
+  .grow .gv { width: 62px; text-align: center; font-size: 21px; font-weight: 700; }
+  .mini {
+    width: 46px; height: 46px; margin: 0; padding: 0; flex: 0 0 auto;
+    font-size: 22px; font-weight: 700; border-radius: 12px;
+    background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  }
+  .mini.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .note { font-size: 15px; color: var(--dim); text-align: center; margin-top: 20px; line-height: 1.7; }
+  .busy { opacity: .5; pointer-events: none; }
+</style>
+</head>
+<body>
+<button id="zoom" title="글자 크기">가</button>
+<div id="app">
+
+  <!-- ① 로그인 -->
+  <section id="s-login" class="screen on">
+    <h1>quick-score</h1>
+    <div class="sub">그룹별 단어시험 채점</div>
+    <div class="card">
+      <label>반</label>
+      <select id="cls"><option>불러오는 중…</option></select>
+      <label>비밀번호</label>
+      <input id="pw" type="password" inputmode="numeric" autocomplete="off">
+      <button id="btn-login">들어가기</button>
+      <div class="err" id="e-login"></div>
+    </div>
+  </section>
+
+  <!-- ② 회차 선택 -->
+  <section id="s-session" class="screen">
+    <h1 id="t-cls">1반</h1>
+    <div class="sub">회차를 고르세요</div>
+    <div class="slist" id="slist"></div>
+    <button class="ghost" id="btn-more" onclick="addMore()">＋ 회차 10개 더 만들기</button>
+    <button class="ghost" id="btn-groups" onclick="openGroupEdit()">⚙︎ 그룹 인원 조정</button>
+    <button class="ghost" onclick="show('s-login')">← 나가기</button>
+  </section>
+
+  <!-- ③ 점수 입력 -->
+  <section id="s-input" class="screen">
+    <div class="dots" id="dots"></div>
+    <div class="card">
+      <div class="head">
+        <span class="who" id="g-name">Group 1</span>
+        <span class="rng" id="g-range">1~4번</span>
+      </div>
+      <div id="rows"></div>
+      <div class="sum" id="sum"></div>
+      <div class="nav">
+        <button class="ghost back" id="btn-prev">←</button>
+        <button id="btn-next">다음 →</button>
+      </div>
+      <div class="err" id="e-input"></div>
+    </div>
+    <div class="note">점수를 비워두면 <b>결석</b>으로 처리되어<br>평균 계산에서 빠집니다.</div>
+  </section>
+
+  <!-- ③-b 그룹 인원 조정 -->
+  <section id="s-groups" class="screen">
+    <h1>그룹 인원</h1>
+    <div class="sub" id="ge-warn"></div>
+    <div class="card">
+      <div class="grow">
+        <span class="gl">그룹 수</span>
+        <button class="mini" onclick="setCount(-1)">－</button>
+        <span class="gv" id="ge-k"></span>
+        <button class="mini" onclick="setCount(1)">＋</button>
+      </div>
+      <div id="ge-rows"></div>
+      <div class="sum" id="ge-sum"></div>
+      <button id="btn-gsave">저장</button>
+      <button class="ghost" onclick="openSessions()">취소</button>
+      <div class="err" id="e-groups"></div>
+    </div>
+    <div class="note">그룹 구성은 <b>지난 회차에도 함께 적용</b>됩니다.<br>
+      학기 중에 바꾸면 이미 계산된 평균이 달라집니다.</div>
+  </section>
+
+  <!-- ④ 순위 -->
+  <section id="s-rank" class="screen">
+    <h1>누적 순위</h1>
+    <div class="sub" id="t-rank">1반</div>
+    <div class="card" id="rank"></div>
+    <button onclick="openSessions()">회차 목록으로</button>
+    <button class="ghost" onclick="show('s-login')">나가기</button>
+  </section>
+
+</div>
+
+<script>
+// ── 서버 호출을 약속(Promise)으로 감싼다. 안 그러면 콜백이 계단처럼 쌓인다 ──
+function call(fn) {
+  var args = [].slice.call(arguments, 1);
+  return new Promise(function (ok, no) {
+    google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { no(e); })[fn].apply(null, args);
+  });
+}
+function $(id) { return document.getElementById(id); }
+function show(id) {
+  var list = document.querySelectorAll('.screen');
+  for (var i = 0; i < list.length; i++) list[i].classList.remove('on');
+  $(id).classList.add('on');
+  window.scrollTo(0, 0);
+}
+
+var S = { cls: '', pw: '', info: null, session: 0, gi: 0, scores: [] };
+
+// ── 글자 크기: 「가」를 누를 때마다 보통 → 크게 → 아주 크게 → 보통 ──
+var ZOOMS = [1, 1.15, 1.3];
+var ZLABEL = ['가', '가＋', '가＋＋'];
+var zi = 0;
+try { zi = Number(localStorage.getItem('qs-zoom')) || 0; } catch (e) {}
+// ponytail: 저장이 막힌 브라우저에서는 기억만 안 될 뿐 동작에는 문제없다
+
+function applyZoom() {
+  document.getElementById('app').style.zoom = ZOOMS[zi];
+  $('zoom').textContent = ZLABEL[zi];
+  try { localStorage.setItem('qs-zoom', zi); } catch (e) {}
+}
+$('zoom').onclick = function () { zi = (zi + 1) % ZOOMS.length; applyZoom(); };
+applyZoom();
+
+// ── ① 로그인 ──
+call('getClassNames').then(function (names) {
+  $('cls').innerHTML = names.map(function (n) { return '<option>' + n + '</option>'; }).join('');
+}).catch(function (e) { $('e-login').textContent = e.message; });
+
+$('btn-login').onclick = function () {
+  var b = this; b.disabled = true; $('e-login').textContent = '';
+  S.cls = $('cls').value; S.pw = $('pw').value;
+  call('login', S.cls, S.pw).then(function (info) {
+    S.info = info;
+    $('t-cls').textContent = info.className;
+    $('t-rank').textContent = info.className;
+    openSessions();
+  }).catch(function (e) {
+    $('e-login').textContent = e.message;
+  }).then(function () { b.disabled = false; });
+};
+
+// ── ② 회차 선택 ──
+function openSessions() {
+  call('login', S.cls, S.pw).then(function (info) {   // 목록을 항상 최신으로
+    S.info = info;
+    drawSessions();
+    show('s-session');
+  });
+}
+
+function drawSessions() {
+  $('slist').innerHTML = S.info.sessions.map(function (s) {
+    var tag = s.locked ? '🔒 확정됨' : (s.filled ? s.filled + '명 입력됨' : '비어 있음');
+    return '<button class="ghost" onclick="openSession(' + s.no + ')">' +
+           '<span>' + s.no + '회차</span><span class="tag">' + tag + '</span></button>';
+  }).join('');
+}
+
+/** 회차가 모자라면 뒤에 10개를 더 붙인다. 빈 줄이라 기존 점수엔 영향이 없다 */
+function addMore() {
+  $('app').classList.add('busy');
+  call('addSessions', S.cls, S.pw, 10).then(function (info) {
+    S.info = info;
+    drawSessions();
+  }).catch(function (e) {
+    alert(e.message);
+  }).then(function () { $('app').classList.remove('busy'); });
+}
+
+// ── ③-b 그룹 인원 조정 ──
+function evenSizes(n, k) {
+  var base = Math.floor(n / k), rem = n % k, out = [];
+  for (var j = 0; j < k; j++) out.push(base + (j >= k - rem ? 1 : 0));
+  return out;
+}
+
+function openGroupEdit() {
+  S.sizes = S.info.sizes.slice();
+  $('ge-warn').textContent = S.info.canEditGroups
+    ? (S.info.hasData ? '이미 입력된 회차가 있습니다. 바꾸면 지난 평균도 달라집니다.' : '')
+    : '선생님이 확정한 회차가 있어 바꿀 수 없습니다.';
+  $('btn-gsave').disabled = !S.info.canEditGroups;
+  $('e-groups').textContent = '';
+  drawGroupEdit();
+  show('s-groups');
+}
+
+/**
+ * ＋/－ 는 옆 그룹에서 한 명을 데려오거나 넘겨준다.
+ * 합계가 늘 학생수와 같아 "합계가 안 맞습니다" 같은 오류가 아예 안 생긴다.
+ */
+function bump(i, d) {
+  var z = S.sizes, j = -1;
+  if (d > 0) {
+    for (var o = 1; o < z.length && j < 0; o++) {
+      if (z[i + o] > 1) j = i + o;
+      else if (z[i - o] > 1) j = i - o;
+    }
+  } else {
+    if (z[i] <= 1) return;
+    j = (i + 1 < z.length) ? i + 1 : i - 1;
+  }
+  if (j < 0 || j >= z.length) return;
+  z[i] += d; z[j] -= d;
+  drawGroupEdit();
+}
+
+function setCount(d) {
+  var k = S.sizes.length + d;
+  if (k < 1 || k > 10 || k > S.info.studentCount) return;
+  S.sizes = evenSizes(S.info.studentCount, k);
+  drawGroupEdit();
+}
+
+function drawGroupEdit() {
+  var first = 1, html = '', ro = !S.info.canEditGroups;
+  $('ge-k').textContent = S.sizes.length;
+  S.sizes.forEach(function (sz, i) {
+    var last = first + sz - 1;
+    html += '<div class="grow">' +
+      '<span class="gl">Group ' + (i + 1) + '</span>' +
+      '<span class="gr">' + first + '~' + last + '번</span>' +
+      '<button class="mini" onclick="bump(' + i + ',-1)"' + (ro ? ' disabled' : '') + '>－</button>' +
+      '<span class="gv">' + sz + '명</span>' +
+      '<button class="mini" onclick="bump(' + i + ',1)"' + (ro ? ' disabled' : '') + '>＋</button>' +
+      '</div>';
+    first = last + 1;
+  });
+  $('ge-rows').innerHTML = html;
+  var sum = S.sizes.reduce(function (a, b) { return a + b; }, 0);
+  $('ge-sum').innerHTML = '합계 <b>' + sum + '</b> / ' + S.info.studentCount + '명';
+}
+
+$('btn-gsave').onclick = function () {
+  $('app').classList.add('busy');
+  $('e-groups').textContent = '';
+  call('setGroupSizes', S.cls, S.pw, S.sizes).then(function (info) {
+    S.info = info;
+    openSessions();
+  }).catch(function (e) {
+    $('e-groups').textContent = e.message;
+  }).then(function () { $('app').classList.remove('busy'); });
+};
+
+// ── ③ 점수 입력 ──
+function openSession(no) {
+  S.session = no;
+  call('getSession', S.cls, S.pw, no).then(function (d) {
+    S.scores = d.scores;
+    S.locked = d.locked;
+    S.gi = 0;
+    drawGroup();
+    show('s-input');
+  });
+}
+
+function drawGroup() {
+  var g = S.info.groups[S.gi];
+  var k = S.info.groups.length;
+
+  $('dots').innerHTML = S.info.groups.map(function (_, i) {
+    return i <= S.gi ? '<b>●</b>' : '○';
+  }).join('');
+  $('g-name').textContent = g.label;
+  $('g-range').textContent = g.range;
+
+  $('rows').innerHTML = g.numbers.map(function (num) {
+    var v = S.scores[num - 1];
+    return '<div class="row">' +
+      '<span class="no">' + num + '번</span>' +
+      '<input type="number" inputmode="numeric" min="0" data-no="' + num + '" ' +
+      'value="' + (v === null ? '' : v) + '">' +
+      '<span class="ab" id="ab-' + num + '"></span></div>';
+  }).join('');
+
+  var inputs = $('rows').querySelectorAll('input');
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].disabled = S.locked;
+    inputs[i].oninput = refreshSum;
+  }
+
+  $('btn-prev').disabled = (S.gi === 0);
+  $('btn-next').textContent = (S.gi === k - 1) ? '저장하고 순위 보기' : '다음 →';
+  $('btn-next').disabled = S.locked;
+  $('e-input').textContent = S.locked ? '이 회차는 확정되어 수정할 수 없습니다.' : '';
+  refreshSum();
+}
+
+function readGroup() {
+  var out = [];
+  var inputs = $('rows').querySelectorAll('input');
+  for (var i = 0; i < inputs.length; i++) {
+    var v = inputs[i].value.trim();
+    out.push(v === '' ? null : Number(v));
+  }
+  return out;
+}
+
+function refreshSum() {
+  var vals = readGroup();
+  var nums = vals.filter(function (v) { return v !== null; });
+  var g = S.info.groups[S.gi];
+  g.numbers.forEach(function (num, i) {
+    $('ab-' + num).textContent = (vals[i] === null) ? '결석' : '';
+  });
+  if (!nums.length) { $('sum').innerHTML = '<span style="color:var(--dim)">입력된 점수 없음</span>'; return; }
+  var sum = nums.reduce(function (a, b) { return a + b; }, 0);
+  $('sum').innerHTML = '합 ' + sum + ' ÷ ' + nums.length + '명 = <b>' +
+                       (Math.round(sum / nums.length * 10) / 10) + '</b>';
+}
+
+$('btn-prev').onclick = function () {
+  saveThen(function () { S.gi--; drawGroup(); });
+};
+$('btn-next').onclick = function () {
+  var last = (S.gi === S.info.groups.length - 1);
+  saveThen(function () {
+    if (last) { drawRank(); show('s-rank'); }
+    else { S.gi++; drawGroup(); }
+  });
+};
+
+/** 화면을 옮기기 전에 항상 저장한다 — 저장 버튼이 따로 없는 이유 */
+function saveThen(after) {
+  if (S.locked) { after(); return; }   // 잠긴 회차는 저장 없이 이동만
+  var vals = readGroup();
+  var g = S.info.groups[S.gi];
+  $('app').classList.add('busy');
+  $('e-input').textContent = '';
+
+  call('saveGroup', S.cls, S.pw, S.session, g.index, vals).then(function (r) {
+    g.numbers.forEach(function (num, i) { S.scores[num - 1] = vals[i]; });
+    S.info.ranking = r.ranking;
+    after();
+  }).catch(function (e) {
+    $('e-input').textContent = e.message;
+  }).then(function () { $('app').classList.remove('busy'); });
+}
+
+// ── ④ 순위 ──
+function drawRank() {
+  var medals = ['🥇', '🥈', '🥉'];
+  var r = S.info.ranking;
+  if (!r.length) { $('rank').innerHTML = '<div class="note">아직 입력된 점수가 없습니다.</div>'; return; }
+  $('rank').innerHTML = r.map(function (x, i) {
+    return '<div class="rk' + (i === 0 ? ' first' : '') + '">' +
+      '<span class="m">' + (medals[i] || x.rank) + '</span>' +
+      '<span class="g">Group ' + x.group + '</span>' +
+      '<span class="v">' + x.avg + '</span></div>';
+  }).join('');
+}
+</script>
+</body>
+</html>

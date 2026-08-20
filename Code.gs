@@ -1,0 +1,539 @@
+/**
+ * quick-score — 서버 (Google Apps Script)
+ * 그룹별 단어시험 채점
+ *
+ * 역할: 스프레드시트가 창고, 이 파일이 문 앞의 관리인.
+ * 도우미 폰(Index.html)은 창고에 직접 못 들어오고, 반드시 여기를 거친다.
+ *
+ * 합계·평균·순위는 여기서 계산하지 않는다. 시트에 박아둔 AVERAGE 수식이 한다.
+ */
+
+// ── 시트 이름 ──
+const S_CONFIG = '설정';
+const S_LOG = '로그';
+const S_ALL = '전체';
+
+// ── 레이아웃 상수 ──
+const MAX_GROUPS = 10;    // 요약 블록의 고정 폭(B~K열). 반마다 학생수가 달라도 위치가 같아야 '전체' 시트가 참조 가능
+const INIT_SESSIONS = 20; // 시트를 처음 만들 때의 회차 수. 앱에서 얼마든지 늘릴 수 있다
+const ROWS_PER_SESSION = 1;
+
+const R_TITLE = 1;   // 1행: 제목
+const R_GHDR  = 2;   // 2행: G1 G2 ... (요약 머리글)
+const R_TOTAL = 3;   // 3행: 누적 평균  ← '전체' 시트가 참조하는 줄
+const R_RANK  = 4;   // 4행: 순위
+const R_HDR   = 6;   // 6행: 원본 표 머리글
+const R_FIRST = 7;   // 7행: 1회차
+
+
+// ══════════════════════════════════════════
+//  열 위치 계산 (A=1, B=2 ...)
+// ══════════════════════════════════════════
+
+/** 학생 i번의 열. 1번 → B(2) */
+function colStudent_(i) { return 1 + i; }
+
+/** 회차별 그룹평균 열. 학생 열이 끝난 바로 뒤 */
+function colAvg_(n, j) { return 1 + n + j; }
+
+/**
+ * 잠금 열. 그룹평균 자리를 항상 MAX_GROUPS칸으로 잡아두므로 위치가 고정이다.
+ * 그룹 수를 바꿔도 열이 밀리지 않아 체크박스와 점수가 어긋나지 않는다.
+ */
+function colLock_(n) { return 1 + n + MAX_GROUPS + 1; }
+
+/**
+ * 학생 n명을 g명씩 나눈 결과의 그룹별 인원.
+ *
+ * 딱 안 떨어지면 나머지를 뒤쪽 그룹에 한 명씩 얹는다.
+ * 25명을 4명씩 → [4,4,4,4,4,5]. 1명짜리 그룹이 생기면
+ * 그 학생 점수가 곧 그룹 평균이 되어 순위가 불공평해지기 때문.
+ */
+function groupSizes_(n, g) {
+  // 설정 시트에 "4,4,4,5,4,4" 처럼 적었으면 그대로 쓴다
+  if (Array.isArray(g)) {
+    const total = g.reduce(function (a, b) { return a + b; }, 0);
+    if (total !== n) {
+      throw new Error('설정 시트를 확인하세요: 그룹 인원 합계 ' + total + '명이 학생수 ' + n + '명과 다릅니다.');
+    }
+    return g;
+  }
+  const k = Math.max(1, Math.floor(n / g));   // 목표 인원을 채우는 그룹 수
+  const base = Math.floor(n / k);
+  const rem = n % k;
+  const sizes = [];
+  for (var j = 0; j < k; j++) sizes.push(base + (j >= k - rem ? 1 : 0));
+  return sizes;
+}
+
+/** 그룹 개수 */
+function groupCount_(n, g) { return groupSizes_(n, g).length; }
+
+/** 그룹 j가 차지하는 학생 번호 범위와 열 범위 */
+function groupSpan_(n, g, j) {
+  const sizes = groupSizes_(n, g);
+  var first = 1;
+  for (var i = 0; i < j - 1; i++) first += sizes[i];
+  const last = first + sizes[j - 1] - 1;
+  return { first: first, last: last, from: colStudent_(first), to: colStudent_(last) };
+}
+
+/** 이 시트에 회차 행이 몇 개 있는지 (A열 라벨이 이어지는 만큼) */
+function sessionCount_(sh) {
+  const labels = sh.getRange(R_FIRST, 1, sh.getMaxRows() - R_FIRST + 1, 1).getValues();
+  for (var i = 0; i < labels.length; i++) {
+    if (String(labels[i][0]).trim() === '') return i;
+  }
+  return labels.length;
+}
+
+/** 회차 번호 → 행 번호 */
+function sessionRow_(session) { return R_FIRST + (session - 1) * ROWS_PER_SESSION; }
+
+
+// ══════════════════════════════════════════
+//  설정 읽기 / 인증
+// ══════════════════════════════════════════
+
+/** 설정 시트를 읽어 반 목록으로 돌려준다 */
+function getConfig_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(S_CONFIG);
+  if (!sh) throw new Error('설정 시트가 없습니다. setup()을 먼저 실행하세요.');
+  const rows = sh.getDataRange().getValues().slice(1);
+  return rows
+    .filter(function (r) { return String(r[0]).trim() !== ''; })
+    .map(function (r) {
+      const raw = String(r[3]).trim();
+      return {
+        name: String(r[0]).trim(),
+        password: String(r[1]).trim(),
+        n: Number(r[2]),
+        // 숫자 하나면 자동 분배, 쉼표 목록이면 그룹별 인원을 그대로
+        g: raw.indexOf(',') >= 0
+             ? raw.split(',').map(function (x) { return Number(x.trim()); })
+             : Number(raw)
+      };
+    });
+}
+
+/**
+ * 비밀번호 확인. 틀리면 여기서 끝.
+ * 세션·토큰을 따로 두지 않고 호출마다 다시 확인한다 —
+ * 만료 버그가 생길 여지가 없고 코드가 세 줄이면 끝나기 때문.
+ */
+function verify_(className, password) {
+  const c = getConfig_().filter(function (x) { return x.name === className; })[0];
+  if (!c || c.password === '' || c.password !== String(password).trim()) {
+    throw new Error('비밀번호가 맞지 않습니다.');
+  }
+  return c;
+}
+
+
+// ══════════════════════════════════════════
+//  웹앱 진입점
+// ══════════════════════════════════════════
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('quick-score')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+}
+
+/** 로그인 화면의 반 드롭다운 채우기 (비밀번호 없이 반 이름만) */
+function getClassNames() {
+  return getConfig_().map(function (c) { return c.name; });
+}
+
+/** 로그인. 성공하면 그 반을 그리는 데 필요한 정보 전부를 돌려준다 */
+function login(className, password) {
+  const c = verify_(className, password);
+  const k = groupCount_(c.n, c.g);
+
+  const groups = [];
+  for (var j = 1; j <= k; j++) {
+    const s = groupSpan_(c.n, c.g, j);
+    const numbers = [];
+    for (var i = s.first; i <= s.last; i++) numbers.push(i);
+    groups.push({ index: j, label: 'Group ' + j, range: s.first + '~' + s.last + '번', numbers: numbers });
+  }
+
+  const sessions = listSessions_(c);
+  return {
+    className: c.name,
+    studentCount: c.n,
+    groups: groups,
+    sizes: groupSizes_(c.n, c.g),
+    // 확정된 회차가 하나라도 있으면 그룹 구성을 못 바꾼다
+    canEditGroups: !sessions.some(function (x) { return x.locked; }),
+    hasData: sessions.some(function (x) { return x.filled > 0; }),
+    sessions: sessions,
+    ranking: getRanking(className, password)
+  };
+}
+
+
+/**
+ * 그룹별 인원을 바꾼다. 도우미도 앱에서 직접 할 수 있다.
+ *
+ * 주의: 그룹 구성은 지난 회차에도 소급 적용된다.
+ * 점수는 학생 번호별로 저장되고 그룹 평균은 번호 범위로 계산하기 때문.
+ * 그래서 확정(잠금)된 회차가 있으면 아예 막는다.
+ */
+function setGroupSizes(className, password, sizes) {
+  const c = verify_(className, password);
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(c.name);
+
+  const total = sizes.reduce(function (a, b) { return a + b; }, 0);
+  if (total !== c.n) throw new Error('그룹 인원 합계 ' + total + '명이 학생수 ' + c.n + '명과 다릅니다.');
+  if (sizes.length > MAX_GROUPS) throw new Error('그룹은 최대 ' + MAX_GROUPS + '개까지입니다.');
+  for (var i = 0; i < sizes.length; i++) {
+    if (sizes[i] < 1) throw new Error('그룹 인원은 1명 이상이어야 합니다.');
+  }
+
+  const locks = sh.getRange(R_FIRST, colLock_(c.n), sessionCount_(sh), 1).getValues();
+  if (locks.some(function (r) { return r[0] === true; })) {
+    throw new Error('선생님이 확정한 회차가 있어 그룹을 바꿀 수 없습니다.');
+  }
+
+  const before = Array.isArray(c.g) ? c.g.join(',') : String(c.g);
+  const after = sizes.join(',');
+  if (before === after) return login(className, password);
+
+  writeConfigGroups_(c.name, after);
+  const updated = getConfig_().filter(function (x) { return x.name === c.name; })[0];
+  refreshGroupFormulas_(sh, updated);
+  logRow_([new Date(), c.name, '-', '그룹구성', before, after]);
+
+  return login(className, password);
+}
+
+/**
+ * 회차를 뒤에 더 만든다. 도우미도 앱에서 누를 수 있다.
+ * 빈 줄을 붙이는 것뿐이라 기존 점수에는 영향이 없다.
+ */
+function addSessions(className, password, add) {
+  const c = verify_(className, password);
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const cur = sessionCount_(sh);
+  add = Math.max(1, Math.min(50, Number(add) || 10));
+
+  const lockCol = colLock_(c.n);
+  const need = R_FIRST + cur + add - 1;
+  if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
+
+  const labels = [];
+  for (var i = 0; i < add; i++) labels.push([(cur + i + 1) + '회차']);
+  sh.getRange(R_FIRST + cur, 1, add, 1).setValues(labels).setFontWeight('bold');
+  sh.getRange(R_FIRST + cur, colAvg_(c.n, 1), add, MAX_GROUPS).setBackground('#fff2cc');
+  sh.getRange(R_FIRST + cur, lockCol, add, 1).insertCheckboxes();
+  sh.getRange(R_FIRST + cur, 2, add, c.n).setHorizontalAlignment('center');
+
+  refreshGroupFormulas_(sh, c);   // 누적 범위를 새 회차까지 넓힌다
+  logRow_([new Date(), c.name, '-', '회차추가', cur + '회차까지', (cur + add) + '회차까지']);
+  return login(className, password);
+}
+
+/** 설정 시트의 그룹당인원 칸을 고쳐 쓴다 */
+function writeConfigGroups_(className, text) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(S_CONFIG);
+  const names = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+  for (var i = 1; i < names.length; i++) {
+    if (String(names[i][0]).trim() === className) {
+      sh.getRange(i + 1, 4).setValue(text);
+      SpreadsheetApp.flush();
+      return;
+    }
+  }
+  throw new Error('설정 시트에서 ' + className + '을 찾지 못했습니다.');
+}
+
+/** 로그 한 줄 */
+function logRow_(row) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(S_LOG);
+  sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+}
+
+/** 각 회차의 상태(입력 있음 / 잠김) */
+function listSessions_(c) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sc = sessionCount_(sh);
+  const values = sh.getRange(R_FIRST, colStudent_(1), sc, c.n).getValues();
+  const locks = sh.getRange(R_FIRST, colLock_(c.n), sc, 1).getValues();
+
+  return values.map(function (row, idx) {
+    const filled = row.filter(function (v) { return v !== '' && v !== null; }).length;
+    return { no: idx + 1, filled: filled, locked: locks[idx][0] === true };
+  });
+}
+
+/** 특정 회차에 이미 들어있는 점수 (이어서 입력할 때 씀) */
+function getSession(className, password, session) {
+  const c = verify_(className, password);
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const k = groupCount_(c.n, c.g);
+  const row = sessionRow_(session);
+
+  const scores = sh.getRange(row, colStudent_(1), 1, c.n).getValues()[0];
+  return {
+    session: session,
+    locked: sh.getRange(row, colLock_(c.n)).getValue() === true,
+    scores: scores.map(function (v) { return (v === '' || v === null) ? null : Number(v); })
+  };
+}
+
+
+// ══════════════════════════════════════════
+//  저장 (핵심)
+// ══════════════════════════════════════════
+
+/**
+ * 한 그룹의 점수를 저장한다.
+ * scores: 그룹원 순서대로. 결석은 null.
+ */
+function saveGroup(className, password, session, groupIndex, scores) {
+  const c = verify_(className, password);
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const k = groupCount_(c.n, c.g);
+  const row = sessionRow_(session);
+
+  if (session < 1 || session > sessionCount_(sh)) throw new Error('없는 회차입니다.');
+  if (sh.getRange(row, colLock_(c.n)).getValue() === true) {
+    throw new Error(session + '회차는 선생님이 확정해서 잠갔습니다. 수정할 수 없습니다.');
+  }
+
+  const s = groupSpan_(c.n, c.g, groupIndex);
+  const width = s.to - s.from + 1;
+  if (scores.length !== width) throw new Error('점수 개수가 그룹 인원과 다릅니다.');
+
+  const rng = sh.getRange(row, s.from, 1, width);
+  const before = rng.getValues()[0];
+  const after = scores.map(function (v) {
+    return (v === null || v === '' || isNaN(Number(v))) ? '' : Number(v);
+  });
+
+  rng.setValues([after]);
+  logChanges_(c.name, session, s.first, before, after);
+
+  return { ok: true, ranking: getRanking(className, password) };
+}
+
+/** 바뀐 칸만 로그 시트에 한 줄씩 남긴다 */
+function logChanges_(className, session, firstStudentNo, before, after) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(S_LOG);
+  const now = new Date();
+  const rows = [];
+
+  after.forEach(function (v, i) {
+    if (String(before[i]) === String(v)) return;   // 안 바뀐 칸은 기록하지 않는다
+    rows.push([
+      now,
+      className,
+      session + '회차',
+      (firstStudentNo + i) + '번',
+      before[i] === '' ? '(없음)' : before[i],
+      v === '' ? '(결석)' : v
+    ]);
+  });
+
+  if (rows.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, 6).setValues(rows);
+  }
+}
+
+
+// ══════════════════════════════════════════
+//  순위 읽기 (계산은 시트 수식이 이미 해둠)
+// ══════════════════════════════════════════
+
+function getRanking(className, password) {
+  const c = verify_(className, password);
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const k = groupCount_(c.n, c.g);
+
+  const totals = sh.getRange(R_TOTAL, 2, 1, k).getValues()[0];
+
+  const list = totals
+    .map(function (v, i) { return { group: i + 1, avg: (v === '' || v === null) ? null : Number(v) }; })
+    .filter(function (x) { return x.avg !== null; });
+
+  list.sort(function (a, b) { return b.avg - a.avg; });
+  list.forEach(function (x, i) { x.rank = i + 1; });
+  return list;
+}
+
+
+// ══════════════════════════════════════════
+//  최초 설치 — 시트와 수식을 통째로 만들어준다
+// ══════════════════════════════════════════
+
+/**
+ * 선생님이 딱 한 번 실행하는 함수.
+ * 설정 시트의 반 목록을 읽어 반별 시트를 만들고 수식을 심는다.
+ * 이미 있는 반 시트는 건드리지 않는다(점수가 날아가지 않도록).
+ */
+function setup() {
+  const ss = SpreadsheetApp.getActive();
+  ensureConfigSheet_(ss);
+  ensureLogSheet_(ss);
+
+  const config = getConfig_();
+  const made = [];
+  config.forEach(function (c) {
+    if (ss.getSheetByName(c.name)) return;   // 이미 있으면 통과
+    buildClassSheet_(ss, c);
+    made.push(c.name);
+  });
+
+  buildAllSheet_(ss, config);
+
+  const msg = made.length
+    ? '새로 만든 반 시트: ' + made.join(', ')
+    : '새로 만든 반 시트 없음 (이미 다 있음)';
+  Logger.log('setup 완료. ' + msg);
+  return msg;
+}
+
+function ensureConfigSheet_(ss) {
+  if (ss.getSheetByName(S_CONFIG)) return;
+  const sh = ss.insertSheet(S_CONFIG, 0);
+  sh.getRange(1, 1, 1, 4).setValues([['반이름', '비밀번호', '학생수', '그룹당인원']])
+    .setFontWeight('bold').setBackground('#e8eaed');
+  // 1반~11반, 25명, 4명씩. 비밀번호는 선생님이 이 시트에서 바로 바꾸면 된다
+  const rows = [];
+  for (var i = 1; i <= 11; i++) rows.push([i + '반', '', 25, 4]);
+  sh.getRange(2, 1, rows.length, 4).setValues(rows);
+  sh.setFrozenRows(1);
+  sh.getRange(2, 2, rows.length, 1).setBackground('#fce8e6')
+    .setNote('반마다 다른 비밀번호를 정해 적으세요. 비어 있으면 그 반은 로그인할 수 없습니다.');
+  sh.getRange(1, 4).setNote(
+    '숫자 하나(예: 4) → 4명씩 자동으로 나누고 남는 학생은 뒤쪽 그룹에 한 명씩 얹습니다.\n' +
+    '25명을 4로 두면 4,4,4,4,4,5 (6그룹)이 됩니다.\n\n' +
+    '그룹마다 인원을 직접 정하려면 쉼표로 적으세요. 예: 3,4,4,5,4,5\n' +
+    '이때 합계가 학생수와 같아야 합니다.');
+}
+
+function ensureLogSheet_(ss) {
+  if (ss.getSheetByName(S_LOG)) return;
+  const sh = ss.insertSheet(S_LOG);
+  sh.getRange(1, 1, 1, 6).setValues([['시각', '반', '회차', '학생', '이전값', '새값']])
+    .setFontWeight('bold').setBackground('#e8eaed');
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1, 150);
+}
+
+/**
+ * 그룹 관련 수식·머리글을 현재 설정대로 다시 심는다.
+ * 학생 점수 칸은 건드리지 않으므로 그룹 구성만 바뀌고 데이터는 그대로 남는다.
+ */
+function refreshGroupFormulas_(sh, c) {
+  const k = groupCount_(c.n, c.g);
+  const sc = sessionCount_(sh);   // 회차가 늘어나도 누적 범위가 따라간다
+  const lastSummaryCol = columnLetter_(1 + MAX_GROUPS);
+
+  const ghdr = [], totals = [], ranks = [], gnames = [];
+  for (var j = 1; j <= MAX_GROUPS; j++) {
+    if (j > k) { ghdr.push(''); totals.push(''); ranks.push(''); gnames.push(''); continue; }
+    const sp = groupSpan_(c.n, c.g, j);
+    const block = sh.getRange(R_FIRST, sp.from, sc, sp.to - sp.from + 1).getA1Notation();
+    const me = columnLetter_(1 + j) + R_TOTAL;
+    ghdr.push('G' + j);
+    gnames.push('G' + j);
+    // 총합 ÷ 응시 인원. AVERAGE가 빈칸(결석)을 알아서 빼준다
+    totals.push('=IF(COUNT(' + block + ')=0,"",ROUND(AVERAGE(' + block + '),2))');
+    ranks.push('=IF(' + me + '="","",RANK(' + me + ',$B$' + R_TOTAL + ':$' + lastSummaryCol + '$' + R_TOTAL + ',0))');
+  }
+  sh.getRange(R_GHDR, 2, 1, MAX_GROUPS).setValues([ghdr]);
+  sh.getRange(R_TOTAL, 2, 1, MAX_GROUPS).setFormulas([totals]);
+  sh.getRange(R_RANK, 2, 1, MAX_GROUPS).setFormulas([ranks]);
+  sh.getRange(R_HDR, colAvg_(c.n, 1), 1, MAX_GROUPS).setValues([gnames]);
+
+  const perSession = [];
+  for (var r = 0; r < sc; r++) {
+    const row = R_FIRST + r, fs = [];
+    for (var j2 = 1; j2 <= MAX_GROUPS; j2++) {
+      if (j2 > k) { fs.push(''); continue; }
+      const sp2 = groupSpan_(c.n, c.g, j2);
+      const a = sh.getRange(row, sp2.from, 1, sp2.to - sp2.from + 1).getA1Notation();
+      fs.push('=IF(COUNT(' + a + ')=0,"",ROUND(AVERAGE(' + a + '),2))');
+    }
+    perSession.push(fs);
+  }
+  sh.getRange(R_FIRST, colAvg_(c.n, 1), sc, MAX_GROUPS).setFormulas(perSession);
+}
+
+function buildClassSheet_(ss, c) {
+  const sh = ss.insertSheet(c.name);
+  const lockCol = colLock_(c.n);
+
+  // 새 시트는 기본 26열뿐이다. 학생이 많으면 열이 모자라 죽는다
+  if (sh.getMaxColumns() < lockCol) {
+    sh.insertColumnsAfter(sh.getMaxColumns(), lockCol - sh.getMaxColumns());
+  }
+
+  sh.getRange(R_TITLE, 1).setValue('quick-score · ' + c.name).setFontSize(14).setFontWeight('bold');
+  sh.getRange(R_GHDR, 1).setValue('그룹');
+  sh.getRange(R_TOTAL, 1).setValue('누적');
+  sh.getRange(R_RANK, 1).setValue('순위');
+  sh.getRange(R_GHDR, 1, 3, MAX_GROUPS + 1)
+    .setFontWeight('bold').setHorizontalAlignment('center').setBackground('#fff2cc');
+
+  // 원본 표 머리글 (G열 이름은 refreshGroupFormulas_ 가 채운다)
+  const hdr = ['회차'];
+  for (var i = 1; i <= c.n; i++) hdr.push(i + '번');
+  for (var m = 1; m <= MAX_GROUPS; m++) hdr.push('');
+  hdr.push('잠금');
+  sh.getRange(R_HDR, 1, 1, hdr.length).setValues([hdr])
+    .setFontWeight('bold').setBackground('#e8eaed').setHorizontalAlignment('center');
+
+  const labels = [];
+  for (var r = 0; r < INIT_SESSIONS; r++) labels.push([(r + 1) + '회차']);
+  sh.getRange(R_FIRST, 1, INIT_SESSIONS, 1).setValues(labels).setFontWeight('bold');
+  sh.getRange(R_FIRST, colAvg_(c.n, 1), INIT_SESSIONS, MAX_GROUPS).setBackground('#fff2cc');
+  sh.getRange(R_FIRST, lockCol, INIT_SESSIONS, 1).insertCheckboxes();
+
+  refreshGroupFormulas_(sh, c);
+
+  sh.setColumnWidth(1, 60);
+  for (var w = 2; w < lockCol; w++) sh.setColumnWidth(w, 38);
+  sh.setColumnWidth(lockCol, 50);
+  sh.setFrozenRows(R_HDR);
+  sh.setFrozenColumns(1);
+  sh.getRange(R_FIRST, 2, INIT_SESSIONS, c.n).setHorizontalAlignment('center');
+}
+
+function buildAllSheet_(ss, config) {
+  const sh = ss.getSheetByName(S_ALL) || ss.insertSheet(S_ALL);
+  sh.clear();
+
+  const hdr = ['반'];
+  for (var j = 1; j <= MAX_GROUPS; j++) hdr.push('G' + j);
+  hdr.push('1등');
+  sh.getRange(1, 1, 1, hdr.length).setValues([hdr])
+    .setFontWeight('bold').setBackground('#e8eaed').setHorizontalAlignment('center');
+
+  config.forEach(function (c, i) {
+    const row = i + 2;
+    sh.getRange(row, 1).setValue(c.name).setFontWeight('bold');
+    for (var j2 = 1; j2 <= MAX_GROUPS; j2++) {
+      // 반 시트의 누적 행(3행)을 그대로 참조 — 계산이 아니라 거울일 뿐
+      sh.getRange(row, 1 + j2).setFormula("='" + c.name + "'!" + columnLetter_(1 + j2) + R_TOTAL);
+    }
+    const from = 'B' + row, to = columnLetter_(1 + MAX_GROUPS) + row;
+    sh.getRange(row, 2 + MAX_GROUPS).setFormula(
+      '=IFERROR(INDEX($B$1:$' + columnLetter_(1 + MAX_GROUPS) + '$1,MATCH(MAX(' +
+      from + ':' + to + '),' + from + ':' + to + ',0)),"")'
+    );
+  });
+
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1, 70);
+}
+
+/** 1 → A, 2 → B ... (26열까지면 충분) */
+function columnLetter_(n) {
+  var s = '';
+  while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
