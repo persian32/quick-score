@@ -26,10 +26,17 @@
 | `Index.html` | 도우미 폰 화면 |
 | `Tests.gs` | Apps Script 자체 점검 16개 (`runTests` 실행) |
 | `배포안내.md` | **설치 안내. 쓰실 분께 이것만 드리면 됩니다** |
-| `미리보기.html` | 구글 연결 없이 폰 화면만 확인 |
-| `교사화면.html` | 스프레드시트가 어떻게 보이는지 |
+| `docs/preview.html` | 구글 연결 없이 폰 화면만 확인 |
+| `docs/teacher.html` | 스프레드시트가 어떻게 보이는지 |
 | `미리보기만들기.py` | `Index.html` 을 고칠 때마다 실행 |
 | `열계산검사.js` `그룹조정검사.js` | 로컬 검사 |
+
+## 미리보기
+
+설치 없이 바로 볼 수 있습니다.
+
+- 도우미 화면: https://persian32.github.io/quick-score/preview.html
+- 교사 화면: https://persian32.github.io/quick-score/teacher.html
 
 ## 기능
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Index.html 에 가짜 서버를 붙여 미리보기.html 을 만든다.
+Index.html 에 가짜 서버를 붙여 docs/preview.html 을 만든다.
 Index.html 을 고칠 때마다 실행:  python3 미리보기만들기.py
 """
 
@@ -169,5 +169,5 @@ BANNER = (
 src = open('Index.html', encoding='utf-8').read()
 out = src.replace('<script>\n// ── 서버 호출', STUB + '\n<script>\n// ── 서버 호출', 1)
 out = out.replace('<div id="app">', BANNER, 1)
-open('미리보기.html', 'w', encoding='utf-8').write(out)
-print('✅ 미리보기.html 생성')
+open('docs/preview.html', 'w', encoding='utf-8').write(out)
+print('✅ docs/preview.html 생성')
