@@ -70,6 +70,26 @@
   .nav button { flex: 1; }
   .nav button.back { flex: 0 0 84px; }
 
+  /* 그룹 인원 조정 */
+  .grow { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .grow:last-of-type { border-bottom: 0; }
+  .grow .gl { flex: 1; font-size: 19px; font-weight: 600; }
+  .grow .gr { font-size: 15px; color: var(--dim); margin-right: 4px; }
+  .grow .gv { width: 62px; text-align: center; font-size: 21px; font-weight: 700; }
+  .mini {
+    width: 46px; height: 46px; margin: 0; padding: 0; flex: 0 0 auto;
+    font-size: 22px; font-weight: 700; border-radius: 12px;
+    background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  }
+
+  /* 글자 크기 조절 — 오른쪽 위 고정 */
+  #zoom {
+    position: fixed; top: 10px; right: 10px; z-index: 50;
+    width: auto; margin: 0; padding: 9px 13px; font-size: 15px; font-weight: 700;
+    background: var(--card); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 20px; opacity: .9;
+  }
+
   .note { font-size: 15px; color: var(--dim); text-align: center; margin-top: 20px; line-height: 1.7; }
   .busy { opacity: .5; pointer-events: none; }
 </style>
@@ -242,7 +262,6 @@ $('btn-login').onclick = function () {
   call('login', S.cls, S.pw).then(function (info) {
     S.info = info;
     $('t-cls').textContent = info.className;
-    $('t-rank').textContent = info.className;
     openSessions();
   }).catch(function (e) {
     $('e-login').textContent = e.message;
