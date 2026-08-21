@@ -155,6 +155,8 @@ function pvLock() {
   var on = !FK.lock[1];
   FK.lock = on ? { 1: true } : {};
   document.getElementById('pv-lock').textContent = on ? '🔓 잠금 풀기' : '🔒 잠가보기';
+  /* 이미 그려진 목록은 저절로 안 바뀐다. 눌렀는데 반응이 없으면 고장으로 보인다 */
+  if (typeof S !== 'undefined' && S.info) openSessions();
 }
 
 function pvPw() {
@@ -177,7 +179,8 @@ BANNER = (
   '  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;'
   'padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)">'
   '<b style="color:var(--ink)">미리보기</b> — 비밀번호는 넣어뒀습니다. '
-  '<b style="color:var(--ink)">들어가기</b>만 누르세요. 지난 시험 하나가 들어 있습니다.'
+  '<b style="color:var(--ink)">들어가기</b>만 누르세요. 지난 시험 하나가 들어 있습니다.<br>'
+  '<b>🔑 비번 바뀜</b> 은 로그인해서 입력하다 눌러야 안내 화면이 뜹니다.'
   '<div style="display:flex;gap:6px;margin-top:11px">'
   f'<button id="pv-theme" onclick="pvTheme()" style="{BTN}">🌙 어둡게</button>'
   f'<button id="pv-lock" onclick="pvLock()" style="{BTN}">🔒 잠가보기</button>'
