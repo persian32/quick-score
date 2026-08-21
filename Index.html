@@ -48,9 +48,14 @@
   .slist button { margin: 0 0 11px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
   .tag { font-size: 15px; font-weight: 400; color: var(--dim); }
 
-  /* 진행 점 */
-  .dots { text-align: center; letter-spacing: 7px; color: var(--line); font-size: 20px; margin: 8px 0 20px; }
-  .dots b { color: var(--accent); }
+  /* 진행 점 — 누르면 그 그룹으로 바로 간다 */
+  .dots { display: flex; justify-content: center; align-items: center; margin: 6px 0 16px; }
+  .dot {
+    padding: 10px 7px; font-size: 17px; line-height: 1;
+    color: var(--line); cursor: pointer; user-select: none;
+  }
+  .dot.done { color: var(--accent); opacity: .5; }
+  .dot.now { color: var(--accent); font-size: 25px; }
 
   .head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
   .head .who { font-size: 25px; font-weight: 700; }
@@ -394,7 +399,8 @@ function drawGroup() {
 
   $('i-date').textContent = S.date ? dateLabel(S.date) + ' 시험' : '오늘 시험';
   $('dots').innerHTML = S.info.groups.map(function (_, i) {
-    return i <= S.gi ? '<b>●</b>' : '○';
+    var cls = (i === S.gi) ? 'dot now' : (i < S.gi ? 'dot done' : 'dot');
+    return '<span class="' + cls + '" onclick="goGroup(' + i + ')">●</span>';
   }).join('');
   $('g-name').textContent = g.label;
   $('g-range').textContent = g.range;
@@ -442,6 +448,12 @@ function refreshSum() {
   var sum = nums.reduce(function (a, b) { return a + b; }, 0);
   $('sum').innerHTML = '합 ' + sum + ' ÷ ' + nums.length + '명 = <b>' +
                        (Math.round(sum / nums.length * 10) / 10) + '</b>';
+}
+
+/** 점을 눌러 그 그룹으로. 지금 화면 것은 저장하고 옮긴다 */
+function goGroup(i) {
+  if (i === S.gi) return;
+  saveThen(function () { S.gi = i; drawGroup(); });
 }
 
 $('btn-prev').onclick = function () {
