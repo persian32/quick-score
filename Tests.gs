@@ -181,6 +181,25 @@ function runTests() {
       SpreadsheetApp.flush();
     });
 
+    check('학생수를 바꾸면 시트가 어긋났다고 분명히 알린다', function () {
+      // 시트는 만들어질 때의 학생수로 열이 짜인다. 설정만 바꾸면 앱이 그 반을 못 연다.
+      // 예전에는 "행의 개수는 1개 이상이어야 합니다" 로 터져서 원인을 알 수 없었다
+      const cfg = ss.getSheetByName(S_CONFIG);
+      const names = cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
+      var r = -1;
+      for (var i = 1; i < names.length; i++) {
+        if (String(names[i][0]).trim() === T_CLASS) r = i + 1;
+      }
+      cfg.getRange(r, 3).setValue(T_N + 3);      // 학생수만 바꿔치기
+      SpreadsheetApp.flush();
+      throws(function () { listSessions_(getConfig_().filter(function (x) {
+        return x.name === T_CLASS; })[0]); }, '어긋난 시트');
+      const msg = setup();
+      eq(msg.indexOf('학생수가 다릅니다') >= 0, true, 'setup 이 알려주는가');
+      cfg.getRange(r, 3).setValue(T_N);          // 되돌리기
+      SpreadsheetApp.flush();
+    });
+
     check('없는 회차는 거부한다', function () {
       throws(function () { saveGroup(T_CLASS, T_PW, 999, 1, [1, 1, 1]); }, '999번째 줄');
     });

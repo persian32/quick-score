@@ -112,10 +112,28 @@ function dateText_(v) {
 function sessionCount_(sh, c) {
   const rows = sh.getMaxRows() - R_FIRST + 1;
   const f = sh.getRange(R_FIRST, colAvg_(c.n, 1), rows, 1).getFormulas();
+  var n = f.length;
   for (var i = 0; i < f.length; i++) {
-    if (!f[i][0]) return i;
+    if (!f[i][0]) { n = i; break; }
   }
-  return f.length;
+  if (n < 1) {
+    // 시트는 만들어질 때의 학생수에 맞춰 열이 짜인다.
+    // 그 뒤 설정의 학생수를 바꾸면 여기서 수식을 못 찾는다
+    throw new Error(
+      c.name + ' 시트가 설정과 맞지 않습니다. 설정 시트의 학생수를 바꾸셨다면 ' +
+      c.name + ' 시트를 삭제하고 setup 을 다시 실행해야 합니다. (선생님께 말씀드리세요)');
+  }
+  return n;
+}
+
+/** 이미 만들어진 반 시트가 몇 명 기준으로 짜여 있는지 (머리글의 'N번' 개수) */
+function sheetStudentCount_(sh) {
+  const hdr = sh.getRange(R_HDR, 1, 1, sh.getMaxColumns()).getValues()[0];
+  var n = 0;
+  for (var i = 0; i < hdr.length; i++) {
+    if (/^\d+번$/.test(String(hdr[i]).trim())) n++;
+  }
+  return n;
 }
 
 /** 회차 번호 → 행 번호 */
@@ -468,7 +486,7 @@ function setup() {
   ensureLogSheet_(ss);
 
   const config = getConfig_();
-  const made = [], skipped = [];
+  const made = [], skipped = [], mismatched = [];
   const ready = [];
 
   config.forEach(function (c) {
@@ -476,7 +494,16 @@ function setup() {
     // 0명으로 그룹을 나누려다 터지므로 여기서 막는다
     if (!c.n || c.n < 1) { skipped.push(c.name); return; }
     ready.push(c);
-    if (ss.getSheetByName(c.name)) return;   // 이미 있으면 통과
+
+    const existing = ss.getSheetByName(c.name);
+    if (existing) {
+      // 학생수를 바꾼 뒤에도 옛 시트가 남아 있으면 앱이 그 반을 못 연다
+      const was = sheetStudentCount_(existing);
+      if (was !== c.n) {
+        mismatched.push(c.name + '(시트 ' + was + '명 ↔ 설정 ' + c.n + '명)');
+      }
+      return;
+    }
     buildClassSheet_(ss, c);
     made.push(c.name);
   });
@@ -489,6 +516,10 @@ function setup() {
     : '새로 만든 반 시트 없음';
   if (skipped.length) {
     msg += '\n설정 시트에 학생수를 채우고 다시 실행하세요 — 건너뛴 반: ' + skipped.join(', ');
+  }
+  if (mismatched.length) {
+    msg += '\n⚠️ 시트와 설정의 학생수가 다릅니다: ' + mismatched.join(', ') +
+           '\n   해당 반 시트를 삭제하고 setup 을 다시 실행하세요. (그 반 점수는 지워집니다)';
   }
   Logger.log('setup 완료. ' + msg);
   return msg;
