@@ -88,13 +88,33 @@ function groupSpan_(n, g, j) {
   return { first: first, last: last, from: colStudent_(first), to: colStudent_(last) };
 }
 
-/** 이 시트에 회차 행이 몇 개 있는지 (A열 라벨이 이어지는 만큼) */
-function sessionCount_(sh) {
-  const labels = sh.getRange(R_FIRST, 1, sh.getMaxRows() - R_FIRST + 1, 1).getValues();
-  for (var i = 0; i < labels.length; i++) {
-    if (String(labels[i][0]).trim() === '') return i;
+/** 오늘 날짜 (시트 시간대 기준, yyyy-MM-dd) */
+function today_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/** 시트에서 읽은 값을 yyyy-MM-dd 문자열로. 빈칸이면 '' */
+function dateText_(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   }
-  return labels.length;
+  return String(v).trim();
+}
+
+/**
+ * 이 시트에 회차 행이 몇 개 있는지.
+ *
+ * A열은 이제 날짜이고 안 쓴 회차는 비어 있으므로 라벨로는 셀 수 없다.
+ * 대신 그룹평균 수식이 회차 행에만 심겨 있다는 점을 이용한다.
+ */
+function sessionCount_(sh, c) {
+  const rows = sh.getMaxRows() - R_FIRST + 1;
+  const f = sh.getRange(R_FIRST, colAvg_(c.n, 1), rows, 1).getFormulas();
+  for (var i = 0; i < f.length; i++) {
+    if (!f[i][0]) return i;
+  }
+  return f.length;
 }
 
 /** 회차 번호 → 행 번호 */
@@ -194,9 +214,11 @@ function login(className, password) {
     // 확정된 회차가 하나라도 있으면 그룹 구성을 못 바꾼다
     canEditGroups: !sessions.some(function (x) { return x.locked; }),
     hasData: sessions.some(function (x) { return x.filled > 0; }),
-    sessions: sessions,
-    ranking: getRanking(className, password)
+    sessions: sessions
   };
+  // 순위는 일부러 보내지 않는다.
+  // 그룹이 4~5명이라 회차마다 순위가 결석 한 명으로 뒤집힌다.
+  // 최종 순위는 선생님이 시트에서 보고 발표 시점을 정한다.
 }
 
 
@@ -219,7 +241,7 @@ function setGroupSizes(className, password, sizes) {
     if (sizes[i] < 1) throw new Error('그룹 인원은 1명 이상이어야 합니다.');
   }
 
-  const locks = sh.getRange(R_FIRST, colLock_(), sessionCount_(sh), 1).getValues();
+  const locks = sh.getRange(R_FIRST, colLock_(), sessionCount_(sh, c), 1).getValues();
   if (locks.some(function (r) { return r[0] === true; })) {
     throw new Error('선생님이 확정한 회차가 있어 그룹을 바꿀 수 없습니다.');
   }
@@ -230,34 +252,54 @@ function setGroupSizes(className, password, sizes) {
 
   writeConfigGroups_(c.name, after);
   const updated = getConfig_().filter(function (x) { return x.name === c.name; })[0];
-  refreshGroupFormulas_(sh, updated);
+  refreshGroupFormulas_(sh, updated, sessionCount_(sh, c));
   logRow_([new Date(), c.name, '-', '그룹구성', before, after]);
 
   return login(className, password);
 }
 
 /**
- * 회차를 뒤에 더 만든다. 도우미도 앱에서 누를 수 있다.
+ * 새 시험을 시작한다 — 아직 안 쓴 첫 줄의 번호를 돌려준다.
+ * 줄이 다 찼으면 알아서 더 만든다. 도우미가 '회차 늘리기'를 신경 쓸 일이 없다.
+ */
+function startSession(className, password) {
+  const c = verify_(className, password);
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sc = sessionCount_(sh, c);
+
+  const dates = sh.getRange(R_FIRST, 1, sc, 1).getValues();
+  const scores = sh.getRange(R_FIRST, colStudent_(1), sc, c.n).getValues();
+  for (var i = 0; i < sc; i++) {
+    const used = dateText_(dates[i][0]) !== '' ||
+                 scores[i].some(function (v) { return v !== '' && v !== null; });
+    if (!used) return { session: i + 1 };
+  }
+
+  addSessions(className, password, 10);
+  return { session: sc + 1 };
+}
+
+/**
+ * 회차 줄을 뒤에 더 만든다.
  * 빈 줄을 붙이는 것뿐이라 기존 점수에는 영향이 없다.
  */
 function addSessions(className, password, add) {
   const c = verify_(className, password);
   const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
-  const cur = sessionCount_(sh);
+  const cur = sessionCount_(sh, c);
   add = Math.max(1, Math.min(50, Number(add) || 10));
 
   const need = R_FIRST + cur + add - 1;
   if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
 
-  const labels = [];
-  for (var i = 0; i < add; i++) labels.push([(cur + i + 1) + '회차']);
-  sh.getRange(R_FIRST + cur, 1, add, 1).setValues(labels).setFontWeight('bold');
+  sh.getRange(R_FIRST + cur, 1, add, 1)
+    .setNumberFormat('yyyy-mm-dd').setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange(R_FIRST + cur, colAvg_(c.n, 1), add, MAX_GROUPS).setBackground('#fff2cc');
   sh.getRange(R_FIRST + cur, colLock_(), add, 1).insertCheckboxes();
   sh.getRange(R_FIRST + cur, colStudent_(1), add, c.n).setHorizontalAlignment('center');
 
-  refreshGroupFormulas_(sh, c);   // 누적 범위를 새 회차까지 넓힌다
-  logRow_([new Date(), c.name, '-', '회차추가', cur + '회차까지', (cur + add) + '회차까지']);
+  refreshGroupFormulas_(sh, c, cur + add);   // 누적 범위를 새 회차까지 넓힌다
+  logRow_([new Date(), c.name, '-', '회차추가', cur + '줄', (cur + add) + '줄']);
   return login(className, password);
 }
 
@@ -284,14 +326,20 @@ function logRow_(row) {
 /** 각 회차의 상태(입력 있음 / 잠김) */
 function listSessions_(c) {
   const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
-  const sc = sessionCount_(sh);
+  const sc = sessionCount_(sh, c);
+  const dates = sh.getRange(R_FIRST, 1, sc, 1).getValues();
   const values = sh.getRange(R_FIRST, colStudent_(1), sc, c.n).getValues();
   const locks = sh.getRange(R_FIRST, colLock_(), sc, 1).getValues();
 
-  return values.map(function (row, idx) {
+  const out = [];
+  values.forEach(function (row, idx) {
     const filled = row.filter(function (v) { return v !== '' && v !== null; }).length;
-    return { no: idx + 1, filled: filled, locked: locks[idx][0] === true };
+    const date = dateText_(dates[idx][0]);
+    // 아직 안 쓴 줄은 목록에 넣지 않는다. 똑같이 생긴 빈 줄이 수십 개 보이면 못 고른다
+    if (!date && !filled) return;
+    out.push({ no: idx + 1, date: date, filled: filled, locked: locks[idx][0] === true });
   });
+  return out;
 }
 
 /** 특정 회차에 이미 들어있는 점수 (이어서 입력할 때 씀) */
@@ -304,6 +352,7 @@ function getSession(className, password, session) {
   const scores = sh.getRange(row, colStudent_(1), 1, c.n).getValues()[0];
   return {
     session: session,
+    date: dateText_(sh.getRange(row, 1).getValue()),   // 아직 안 쓴 줄이면 ''
     locked: sh.getRange(row, colLock_()).getValue() === true,
     scores: scores.map(function (v) { return (v === '' || v === null) ? null : Number(v); })
   };
@@ -324,9 +373,19 @@ function saveGroup(className, password, session, groupIndex, scores) {
   const k = groupCount_(c.n, c.g);
   const row = sessionRow_(session);
 
-  if (session < 1 || session > sessionCount_(sh)) throw new Error('없는 회차입니다.');
+  if (session < 1 || session > sessionCount_(sh, c)) throw new Error('없는 회차입니다.');
   if (sh.getRange(row, colLock_()).getValue() === true) {
-    throw new Error(session + '회차는 선생님이 확정해서 잠갔습니다. 수정할 수 없습니다.');
+    throw new Error('선생님이 확정한 시험이라 수정할 수 없습니다.');
+  }
+
+  // 이 회차에 처음 점수가 들어오는 순간 오늘 날짜를 적는다.
+  // 도우미가 누를 것이 하나도 없고, 시험 당일 입력하니 날짜도 맞다
+  const dateCell = sh.getRange(row, 1);
+  var dateStr = dateText_(dateCell.getValue());
+  if (!dateStr) {
+    const n = new Date();
+    dateCell.setValue(new Date(n.getFullYear(), n.getMonth(), n.getDate()));
+    dateStr = today_();
   }
 
   const s = groupSpan_(c.n, c.g, groupIndex);
@@ -340,13 +399,13 @@ function saveGroup(className, password, session, groupIndex, scores) {
   });
 
   rng.setValues([after]);
-  logChanges_(c.name, session, s.first, before, after);
+  logChanges_(c.name, dateStr, s.first, before, after);
 
-  return { ok: true, ranking: getRanking(className, password) };
+  return { ok: true, date: dateStr };
 }
 
 /** 바뀐 칸만 로그 시트에 한 줄씩 남긴다 */
-function logChanges_(className, session, firstStudentNo, before, after) {
+function logChanges_(className, sessionLabel, firstStudentNo, before, after) {
   const sh = SpreadsheetApp.getActive().getSheetByName(S_LOG);
   const now = new Date();
   const rows = [];
@@ -356,7 +415,7 @@ function logChanges_(className, session, firstStudentNo, before, after) {
     rows.push([
       now,
       className,
-      session + '회차',
+      sessionLabel,
       (firstStudentNo + i) + '번',
       before[i] === '' ? '(없음)' : before[i],
       v === '' ? '(결석)' : v
@@ -371,6 +430,9 @@ function logChanges_(className, session, firstStudentNo, before, after) {
 
 // ══════════════════════════════════════════
 //  순위 읽기 (계산은 시트 수식이 이미 해둠)
+//
+//  앱 화면에서는 쓰지 않는다 — 도우미에게 순위를 보여주지 않기로 했다.
+//  선생님이 편집기에서 값을 확인하고 싶을 때를 위해 남겨둔다.
 // ══════════════════════════════════════════
 
 function getRanking(className, password) {
@@ -446,7 +508,7 @@ function ensureConfigSheet_(ss) {
 function ensureLogSheet_(ss) {
   if (ss.getSheetByName(S_LOG)) return;
   const sh = ss.insertSheet(S_LOG);
-  sh.getRange(1, 1, 1, 6).setValues([['시각', '반', '회차', '학생', '이전값', '새값']])
+  sh.getRange(1, 1, 1, 6).setValues([['시각', '반', '시험날짜', '학생', '이전값', '새값']])
     .setFontWeight('bold').setBackground('#e8eaed');
   sh.setFrozenRows(1);
   sh.setColumnWidth(1, 150);
@@ -456,9 +518,10 @@ function ensureLogSheet_(ss) {
  * 그룹 관련 수식·머리글을 현재 설정대로 다시 심는다.
  * 학생 점수 칸은 건드리지 않으므로 그룹 구성만 바뀌고 데이터는 그대로 남는다.
  */
-function refreshGroupFormulas_(sh, c) {
+function refreshGroupFormulas_(sh, c, sessions) {
   const k = groupCount_(c.n, c.g);
-  const sc = sessionCount_(sh);   // 회차가 늘어나도 누적 범위가 따라간다
+  // 회차 수는 이 수식들의 존재로 세므로, 새로 심는 중일 때는 인자로 받아야 한다
+  const sc = sessions || sessionCount_(sh, c);
   const firstSummary = columnLetter_(colSummary_(1));
   const lastSummary = columnLetter_(colSummary_(MAX_GROUPS));
 
@@ -504,6 +567,8 @@ function buildClassSheet_(ss, c) {
   }
 
   sh.getRange(R_TITLE, 1).setValue('quick-score · ' + c.name).setFontSize(14).setFontWeight('bold');
+  sh.getRange(R_HDR, 1).setNote('시험 날짜입니다. 도우미가 처음 점수를 저장할 때 자동으로 적히고, '
+    + '틀리면 여기서 바로 고치면 됩니다.');
   sh.getRange(R_GHDR, 1).setValue('그룹');
   sh.getRange(R_TOTAL, 1).setValue('누적');
   sh.getRange(R_RANK, 1).setValue('순위');
@@ -513,21 +578,21 @@ function buildClassSheet_(ss, c) {
     .setFontWeight('bold').setHorizontalAlignment('center').setBackground('#fff2cc');
 
   // 원본 표 머리글 (G열 이름은 refreshGroupFormulas_ 가 채운다)
-  const hdr = ['회차', '잠금'];
+  const hdr = ['날짜', '잠금'];
   for (var i = 1; i <= c.n; i++) hdr.push(i + '번');
   for (var m = 1; m <= MAX_GROUPS; m++) hdr.push('');   // G열 이름은 refreshGroupFormulas_ 가 채운다
   sh.getRange(R_HDR, 1, 1, hdr.length).setValues([hdr])
     .setFontWeight('bold').setBackground('#e8eaed').setHorizontalAlignment('center');
 
-  const labels = [];
-  for (var r = 0; r < INIT_SESSIONS; r++) labels.push([(r + 1) + '회차']);
-  sh.getRange(R_FIRST, 1, INIT_SESSIONS, 1).setValues(labels).setFontWeight('bold');
+  // A열은 시험 날짜. 도우미가 그 회차에 처음 점수를 저장할 때 자동으로 적힌다
+  sh.getRange(R_FIRST, 1, INIT_SESSIONS, 1)
+    .setNumberFormat('yyyy-mm-dd').setFontWeight('bold').setHorizontalAlignment('center');
   sh.getRange(R_FIRST, colAvg_(c.n, 1), INIT_SESSIONS, MAX_GROUPS).setBackground('#fff2cc');
   sh.getRange(R_FIRST, colLock_(), INIT_SESSIONS, 1).insertCheckboxes();
 
-  refreshGroupFormulas_(sh, c);
+  refreshGroupFormulas_(sh, c, INIT_SESSIONS);
 
-  sh.setColumnWidth(1, 60);
+  sh.setColumnWidth(1, 96);   // 날짜가 들어간다
   sh.setColumnWidth(colLock_(), 50);
   for (var w = colStudent_(1); w <= lastCol; w++) sh.setColumnWidth(w, 38);
   sh.setFrozenRows(R_HDR);
@@ -542,6 +607,7 @@ function buildAllSheet_(ss, config) {
   const hdr = ['반'];
   for (var j = 1; j <= MAX_GROUPS; j++) hdr.push('G' + j);
   hdr.push('1등');
+  hdr.push('회차');   // 반마다 시험 횟수가 다를 수 있다. 없으면 반끼리 잘못 비교하게 된다
   sh.getRange(1, 1, 1, hdr.length).setValues([hdr])
     .setFontWeight('bold').setBackground('#e8eaed').setHorizontalAlignment('center');
 
@@ -556,6 +622,10 @@ function buildAllSheet_(ss, config) {
     sh.getRange(row, 2 + MAX_GROUPS).setFormula(
       '=IFERROR(INDEX($B$1:$' + columnLetter_(1 + MAX_GROUPS) + '$1,MATCH(MAX(' +
       from + ':' + to + '),' + from + ':' + to + ',0)),"")'
+    );
+    // 그 반 시트에서 날짜가 적힌 줄 수 = 실제로 친 시험 횟수
+    sh.getRange(row, 3 + MAX_GROUPS).setFormula(
+      "=COUNT('" + c.name + "'!A" + R_FIRST + ":A)"
     );
   });
 

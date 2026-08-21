@@ -11,7 +11,11 @@ os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))  # 저�
 STUB = r'''
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
-var FK = { n: 25, g: 4, data: {}, lock: {}, sessions: 20, pwChanged: false };
+var FK = { n: 25, g: 4, data: {}, dates: {}, lock: {}, sessions: 20, pwChanged: false };
+function fkToday() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
 var FK_NAMES = []; for (var i = 1; i <= 11; i++) FK_NAMES.push(i + '반');
 
 function fkSizes(n, g) {   /* Code.gs의 groupSizes_ 와 같은 규칙 */
@@ -35,23 +39,24 @@ function fkRow(cls, s) {
   if (!FK.data[key]) { FK.data[key] = []; for (var i = 0; i < FK.n; i++) FK.data[key].push(null); }
   return FK.data[key];
 }
-function fkRanking(cls) {
-  return fkGroups().map(function (g) {
-    var all = [];
-    for (var s = 1; s <= 20; s++) {
-      var row = FK.data[cls + '/' + s];
-      if (row) g.numbers.forEach(function (n) { if (row[n - 1] !== null) all.push(row[n - 1]); });
-    }
-    if (!all.length) return null;
-    var sum = all.reduce(function (a, b) { return a + b; }, 0);
-    return { group: g.index, avg: Math.round(sum / all.length * 100) / 100 };
-  }).filter(Boolean).sort(function (a, b) { return b.avg - a.avg; })
-    .map(function (x, i) { x.rank = i + 1; return x; });
-}
 function fkAuth(cls, pw) {
   var real = FK.pwChanged ? '5678' : '1234';
   if (String(pw).trim() !== real) throw { message: '비밀번호가 맞지 않습니다.' };
 }
+
+/* 일주일 전 시험 하나를 미리 넣어둔다. 목록이 비면 날짜 화면을 볼 수 없다 */
+(function seed() {
+  var d = new Date(); d.setDate(d.getDate() - 7);
+  var iso = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  FK_NAMES.forEach(function (c) {
+    FK.dates[c + '/1'] = iso;
+    var row = [];
+    for (var i = 0; i < FK.n; i++) {
+      row.push(Math.random() < 0.1 ? null : 8 + Math.floor(Math.random() * 8));
+    }
+    FK.data[c + '/1'] = row;
+  });
+})();
 
 var FAKE = {
   getClassNames: function () { return FK_NAMES; },
@@ -60,22 +65,41 @@ var FAKE = {
     var sessions = [];
     for (var s = 1; s <= (FK.sessions || 20); s++) {
       var row = FK.data[cls + '/' + s] || [];
-      sessions.push({ no: s, filled: row.filter(function (v) { return v !== null; }).length, locked: !!FK.lock[s] });
+      var filled = row.filter(function (v) { return v !== null; }).length;
+      var date = FK.dates[cls + '/' + s] || '';
+      if (!date && !filled) continue;          // 안 쓴 줄은 목록에 없다
+      sessions.push({ no: s, date: date, filled: filled, locked: !!FK.lock[s] });
     }
     return {
       className: cls, studentCount: FK.n, groups: fkGroups(), sizes: fkSizes(FK.n, FK.g),
       canEditGroups: !sessions.some(function (x) { return x.locked; }),
       hasData: sessions.some(function (x) { return x.filled > 0; }),
-      sessions: sessions, ranking: fkRanking(cls)
+      sessions: sessions
     };
   },
-  getSession: function (cls, pw, s) { fkAuth(cls, pw); return { session: s, locked: !!FK.lock[s], scores: fkRow(cls, s).slice() }; },
+  getSession: function (cls, pw, s) {
+    fkAuth(cls, pw);
+    return { session: s, date: FK.dates[cls + '/' + s] || '',
+             locked: !!FK.lock[s], scores: fkRow(cls, s).slice() };
+  },
+  startSession: function (cls, pw) {
+    fkAuth(cls, pw);
+    for (var s = 1; s <= (FK.sessions || 20); s++) {
+      var row = FK.data[cls + '/' + s];
+      var used = FK.dates[cls + '/' + s] || (row && row.some(function (v) { return v !== null; }));
+      if (!used) return { session: s };
+    }
+    FK.sessions += 10;
+    return { session: FK.sessions - 9 };
+  },
   saveGroup: function (cls, pw, s, gi, vals) {
     fkAuth(cls, pw);
-    if (FK.lock[s]) throw { message: s + '회차는 선생님이 확정해서 잠갔습니다. 수정할 수 없습니다.' };
+    if (FK.lock[s]) throw { message: '선생님이 확정한 시험이라 수정할 수 없습니다.' };
+    var key = cls + '/' + s;
+    if (!FK.dates[key]) FK.dates[key] = fkToday();    // 첫 저장 때 오늘 날짜
     var row = fkRow(cls, s), g = fkGroups()[gi - 1];
     g.numbers.forEach(function (n, i) { row[n - 1] = vals[i]; });
-    return { ok: true, ranking: fkRanking(cls) };
+    return { ok: true, date: FK.dates[key] };
   },
   setGroupSizes: function (cls, pw, sizes) {
     fkAuth(cls, pw);
@@ -89,8 +113,7 @@ var FAKE = {
     fkAuth(cls, pw);
     FK.sessions = (FK.sessions || 20) + (Number(add) || 10);
     return FAKE.login(cls, pw);
-  },
-  getRanking: function (cls, pw) { fkAuth(cls, pw); return fkRanking(cls); }
+  }
 };
 
 var google = { script: {} };
@@ -133,9 +156,9 @@ function pvPw() {
 
 /* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
 function pvLock(on) {
-  FK.lock = on ? { 3: true } : {};
+  FK.lock = on ? { 1: true } : {};
   document.getElementById('pv-lockmsg').textContent = on
-    ? '3회차 잠금 상태 — 그룹 조정이 막힙니다'
+    ? '지난 시험 잠금 — 그룹 조정이 막힙니다'
     : '잠금 없음 — 실제 앱의 처음 상태입니다';
 }
 
@@ -172,14 +195,15 @@ BANNER = (
   'padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)">'
   '<b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. '
   '<b style="color:var(--ink)">들어가기</b>만 누르세요.<br>'
-  '점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.'
+  '점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<br>'
+  '지난 시험 하나가 들어 있고, <b>＋ 새 시험 시작</b> 을 누르면 오늘 날짜로 새로 만들어집니다.'
   '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px">'
   f'<button id="pv-auto" onclick="pvTheme(\'auto\')" style="{BTN}">📱 폰 설정</button>'
   f'<button id="pv-light" onclick="pvTheme(\'light\')" style="{BTN}">☀️ 밝게</button>'
   f'<button id="pv-dark" onclick="pvTheme(\'dark\')" style="{BTN}">🌙 어둡게</button>'
   '</div>'
   '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">'
-  f'<button onclick="pvLock(true)" style="{BTN}">🔒 3회차 잠금</button>'
+  f'<button onclick="pvLock(true)" style="{BTN}">🔒 지난 시험 잠금</button>'
   f'<button onclick="pvLock(false)" style="{BTN}">🔓 잠금 해제</button>'
   '</div>'
   '<div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div>'

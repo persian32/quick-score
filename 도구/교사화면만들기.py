@@ -19,6 +19,8 @@ random.seed(7)
 MAX_GROUPS = 10
 SESSIONS, SHOW_ROWS = 4, 8
 LOCKED = {1, 2}
+# 실제 앱은 첫 점수가 저장될 때 그 날짜를 A열에 적는다
+DATES = ['2026-08-24', '2026-08-31', '2026-09-07', '2026-09-14']
 
 # 반마다 인원이 다르다. 실제 교실이 그렇고, 그룹 분배도 그에 맞춰 달라진다
 COUNT = {'1반':25, '2반':22, '3반':24, '4반':23, '5반':25, '6반':21,
@@ -109,7 +111,7 @@ def sheet_class(cls, used):
 
     emit(pad([td('', 'frz1'), td('', 'frz2')]))
 
-    hdr = [td('회차', 'hdr frz1'), td('잠금', 'hdr frz2')]
+    hdr = [td('날짜', 'hdr frz1'), td('잠금', 'hdr frz2')]
     for i in range(1, N+1): hdr.append(td(f'{i}번', 'hdr'))
     for j in range(MAX_GROUPS): hdr.append(td(f'G{j+1}' if j < K else '', 'hdr avg'))
     emit(pad(hdr), 'hdrrow')
@@ -121,7 +123,8 @@ def sheet_class(cls, used):
 
     for s in range(1, SHOW_ROWS+1):
         locked = used and s in LOCKED
-        cs = [td(f'{s}회차', 'lbl frz1'),
+        label = DATES[s-1] if (used and s <= SESSIONS) else ''
+        cs = [td(label, 'lbl frz1'),
               td('☑' if locked else '☐', 'lock frz2', ' onclick="toggleLock(this)"')]
         for i in range(1, N+1):
             v = data[(cls, s)][i-1] if (used and s <= SESSIONS) else None
@@ -151,16 +154,16 @@ def sheet_config(used):
 def sheet_log(used):
     head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 7)) + '</tr>'
     rows = ['<tr class="hdrrow"><th class="rn">1</th>' +
-            ''.join(td(x, 'hdr') for x in ['시각','반','회차','학생','이전값','새값']) + '</tr>']
+            ''.join(td(x, 'hdr') for x in ['시각','반','시험날짜','학생','이전값','새값']) + '</tr>']
     entries = [
-        ('2026-08-24 09:14:22','1반','1회차','1번','(없음)',14),
-        ('2026-08-24 09:14:22','1반','1회차','2번','(없음)',13),
-        ('2026-08-24 09:14:22','1반','1회차','6번','(없음)','(결석)'),
-        ('2026-08-24 09:15:03','1반','1회차','5번','(없음)',11),
-        ('2026-08-31 09:11:47','1반','2회차','1번','(없음)',11),
+        ('2026-08-24 09:14:22','1반','2026-08-24','1번','(없음)',14),
+        ('2026-08-24 09:14:22','1반','2026-08-24','2번','(없음)',13),
+        ('2026-08-24 09:14:22','1반','2026-08-24','6번','(없음)','(결석)'),
+        ('2026-08-24 09:15:03','1반','2026-08-24','5번','(없음)',11),
+        ('2026-08-31 09:11:47','1반','2026-08-31','1번','(없음)',11),
         ('2026-08-31 09:20:12','1반','-','그룹구성','4','4,4,4,4,4,5'),
-        ('2026-09-07 09:12:55','1반','3회차','7번',11,14),
-        ('2026-09-07 09:31:08','1반','-','회차추가','20회차까지','30회차까지'),
+        ('2026-09-07 09:12:55','1반','2026-09-07','7번',11,14),
+        ('2026-09-07 09:31:08','1반','-','회차추가','20줄','30줄'),
     ] if used else []
     for i, e in enumerate(entries):
         cls = 'warn' if e[4] not in ('(없음)', '4', '20회차까지') else ''
@@ -171,9 +174,9 @@ def sheet_log(used):
 
 
 def sheet_all(used):
-    head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 13)) + '</tr>'
+    head = '<tr><th class="rn"></th>' + ''.join(f'<th>{letter(c)}</th>' for c in range(1, 14)) + '</tr>'
     rows = ['<tr class="hdrrow"><th class="rn">1</th>' +
-            ''.join(td(x, 'hdr') for x in ['반'] + [f'G{j+1}' for j in range(MAX_GROUPS)] + ['1등']) + '</tr>']
+            ''.join(td(x, 'hdr') for x in ['반'] + [f'G{j+1}' for j in range(MAX_GROUPS)] + ['1등', '회차']) + '</tr>']
     for i, cls in enumerate(CLASSES):
         k = len(group_sizes(COUNT[cls]))
         cs = [td(cls, 'lbl')]
@@ -183,9 +186,10 @@ def sheet_all(used):
             for j in range(MAX_GROUPS):
                 cs.append(td(tot[j] if j < k else '', 'avg' + (' best' if j == best else '')))
             cs.append(td(f'G{best+1}', 'lbl'))
+            cs.append(td(SESSIONS))
         else:
             for j in range(MAX_GROUPS): cs.append(td('', 'avg'))
-            cs.append(td())
+            cs.append(td()); cs.append(td())
         rows.append(f'<tr><th class="rn">{i+2}</th>' + ''.join(cs) + '</tr>')
     return f'<table class="sheet narrow">{head}{"".join(rows)}</table>'
 
@@ -197,7 +201,8 @@ HINT_CONFIG = ('선생님이 손으로 관리하는 <b>유일한</b> 시트입�
   '<code>4,4,4,4,4,5</code>처럼 쉼표로 쓰면 그대로 씁니다. 비밀번호는 바꾸면 즉시 적용되고 재배포가 필요 없습니다.')
 
 HINT_FIRST = ('<b>A(회차)와 B(잠금)는 고정</b>이라 오른쪽으로 아무리 스크롤해도 따라옵니다. '
-  '회차가 끝나면 <b>잠금</b>에 체크만 하면 그 회차는 도우미가 못 고칩니다.<br>'
+  '시험이 끝나면 <b>잠금</b>에 체크만 하면 그 시험은 도우미가 못 고칩니다.<br>'
+  '<b>A열은 시험 날짜</b>입니다. 도우미가 처음 점수를 저장할 때 자동으로 적히고, 틀리면 여기서 고치면 됩니다.<br>'
   '<b>2~4행</b>이 열자마자 보이는 요약이고, 세부 점수는 6행 아래입니다. '
   '노란 칸은 전부 수식이라 손댈 필요가 없습니다. 분홍 칸은 결석이라 평균에서 빠집니다.<br>'
   '<b>여기서 직접 해보실 수 있습니다</b> — 점수 칸을 눌러 숫자를 고치거나 지워보세요. '
@@ -214,7 +219,8 @@ TABS.append(('로그', sheet_log,
   '누가 언제 어느 칸을 뭐에서 뭐로 바꿨는지 전부 남습니다. <b>주황색</b>은 이미 있던 값을 고친 기록이라 '
   '특히 눈여겨볼 줄입니다. 그룹 구성 변경과 회차 추가도 남습니다.'))
 TABS.append(('전체', sheet_all,
-  '반을 옮겨다니지 않고 한눈에 비교합니다. 코드가 아니라 각 반 시트의 누적 행을 그대로 비추는 수식입니다.'))
+  '반을 옮겨다니지 않고 한눈에 비교합니다. 코드가 아니라 각 반 시트의 누적 행을 그대로 비추는 수식입니다.<br>'
+  '<b>반마다 시험 횟수가 다를 수 있으므로</b> 맨 오른쪽에 회차 수를 함께 둡니다. 순위는 반 안에서만 매기니 회차가 달라도 상관없습니다.'))
 
 
 def render(fn, name, used):
@@ -293,8 +299,9 @@ html = f'''<!DOCTYPE html>
 {panes}
 <footer>
   <b>선생님이 직접 하는 일은 세 가지뿐입니다.</b><br>
-  ① <b>설정</b> 시트에 반별 비밀번호와 학생수 적기 &nbsp; ② 회차가 끝나면 <b>B열 잠금</b>에 체크 &nbsp;
-  ③ <b>전체</b> 시트로 순위 확인<br>
+  ① <b>설정</b> 시트에 반별 비밀번호와 학생수 적기 &nbsp; ② 시험이 끝나면 <b>B열 잠금</b>에 체크 &nbsp;
+  ③ 마지막에 <b>3~4행</b>에서 최종 순위 확인<br>
+  순위는 도우미 화면에 나오지 않습니다. 발표 시점은 선생님이 정합니다.<br>
   노란 칸(평균·누적·순위)은 전부 수식이라 건드릴 필요가 없습니다.
 </footer>
 <script>

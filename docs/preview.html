@@ -70,35 +70,6 @@
   .nav button { flex: 1; }
   .nav button.back { flex: 0 0 84px; }
 
-  /* 순위 */
-  .rk { display: flex; align-items: center; gap: 12px; padding: 16px 6px; border-bottom: 1px solid var(--line); }
-  .rk:last-child { border-bottom: 0; }
-  .rk .m { width: 46px; font-size: 24px; text-align: center; }
-  .rk .g { flex: 1; font-size: 20px; font-weight: 600; }
-  .rk .v { font-size: 24px; font-weight: 700; }
-  .rk.first { background: var(--hi); border-radius: 12px; }
-
-  /* 글자 크기 조절 — 오른쪽 위 고정 */
-  #zoom {
-    position: fixed; top: 10px; right: 10px; z-index: 50;
-    width: auto; margin: 0; padding: 9px 13px; font-size: 15px; font-weight: 700;
-    background: var(--card); color: var(--dim); border: 1px solid var(--line);
-    border-radius: 20px; opacity: .9;
-  }
-
-  /* 그룹 인원 조정 */
-  .grow { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-  .grow:last-of-type { border-bottom: 0; }
-  .grow .gl { flex: 1; font-size: 19px; font-weight: 600; }
-  .grow .gr { font-size: 15px; color: var(--dim); margin-right: 4px; }
-  .grow .gv { width: 62px; text-align: center; font-size: 21px; font-weight: 700; }
-  .mini {
-    width: 46px; height: 46px; margin: 0; padding: 0; flex: 0 0 auto;
-    font-size: 22px; font-weight: 700; border-radius: 12px;
-    background: var(--card); color: var(--ink); border: 1px solid var(--line);
-  }
-  .mini.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-
   .note { font-size: 15px; color: var(--dim); text-align: center; margin-top: 20px; line-height: 1.7; }
   .busy { opacity: .5; pointer-events: none; }
 </style>
@@ -106,7 +77,7 @@
 <body>
 <button id="zoom" title="글자 크기">가</button>
 <div id="app">
-  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요.<br>점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px"><button id="pv-auto" onclick="pvTheme('auto')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">📱 폰 설정</button><button id="pv-light" onclick="pvTheme('light')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">☀️ 밝게</button><button id="pv-dark" onclick="pvTheme('dark')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><button onclick="pvLock(true)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 3회차 잠금</button><button onclick="pvLock(false)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔓 잠금 해제</button></div><div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"><button onclick="pvPw()" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔑 선생님이 비번을 바꿈</button></div><div id="pv-pwmsg" style="font-size:12.5px;margin-top:7px">비밀번호 1234 — 정상</div></div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요.<br>점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<br>지난 시험 하나가 들어 있고, <b>＋ 새 시험 시작</b> 을 누르면 오늘 날짜로 새로 만들어집니다.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px"><button id="pv-auto" onclick="pvTheme('auto')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">📱 폰 설정</button><button id="pv-light" onclick="pvTheme('light')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">☀️ 밝게</button><button id="pv-dark" onclick="pvTheme('dark')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><button onclick="pvLock(true)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 지난 시험 잠금</button><button onclick="pvLock(false)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔓 잠금 해제</button></div><div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"><button onclick="pvPw()" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔑 선생님이 비번을 바꿈</button></div><div id="pv-pwmsg" style="font-size:12.5px;margin-top:7px">비밀번호 1234 — 정상</div></div>
 
   <!-- ① 로그인 -->
   <section id="s-login" class="screen on">
@@ -122,18 +93,20 @@
     </div>
   </section>
 
-  <!-- ② 회차 선택 -->
+  <!-- ② 시험 고르기 -->
   <section id="s-session" class="screen">
     <h1 id="t-cls">1반</h1>
-    <div class="sub">회차를 고르세요</div>
+    <div class="sub">오늘 시험이면 새로 시작하세요</div>
+    <button id="btn-new" onclick="startNew()">＋ 새 시험 시작</button>
     <div class="slist" id="slist"></div>
-    <button class="ghost" id="btn-more" onclick="addMore()">＋ 회차 10개 더 만들기</button>
     <button class="ghost" id="btn-groups" onclick="openGroupEdit()">⚙︎ 그룹 인원 조정</button>
     <button class="ghost" onclick="show('s-login')">← 나가기</button>
+    <div class="err" id="e-session"></div>
   </section>
 
   <!-- ③ 점수 입력 -->
   <section id="s-input" class="screen">
+    <div class="sub" id="i-date" style="margin:6px 0 2px"></div>
     <div class="dots" id="dots"></div>
     <div class="card">
       <div class="head">
@@ -185,13 +158,17 @@
     </div>
   </section>
 
-  <!-- ④ 순위 -->
-  <section id="s-rank" class="screen">
-    <h1>누적 순위</h1>
-    <div class="sub" id="t-rank">1반</div>
-    <div class="card" id="rank"></div>
-    <button onclick="openSessions()">회차 목록으로</button>
-    <button class="ghost" onclick="show('s-login')">나가기</button>
+  <!-- ④ 완료 -->
+  <section id="s-done" class="screen">
+    <h1>다 넣었습니다</h1>
+    <div class="sub" id="t-done"></div>
+    <div class="card">
+      <div id="done-sum"></div>
+      <button onclick="openSessions()">시험 목록으로</button>
+      <button class="ghost" onclick="show('s-login')">나가기</button>
+    </div>
+    <div class="note">순위는 선생님이 학기 끝에 발표합니다.<br>
+      고칠 곳이 있으면 목록에서 그 날짜를 다시 열면 됩니다.</div>
   </section>
 
 </div>
@@ -199,7 +176,11 @@
 
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
-var FK = { n: 25, g: 4, data: {}, lock: {}, sessions: 20, pwChanged: false };
+var FK = { n: 25, g: 4, data: {}, dates: {}, lock: {}, sessions: 20, pwChanged: false };
+function fkToday() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
 var FK_NAMES = []; for (var i = 1; i <= 11; i++) FK_NAMES.push(i + '반');
 
 function fkSizes(n, g) {   /* Code.gs의 groupSizes_ 와 같은 규칙 */
@@ -223,23 +204,24 @@ function fkRow(cls, s) {
   if (!FK.data[key]) { FK.data[key] = []; for (var i = 0; i < FK.n; i++) FK.data[key].push(null); }
   return FK.data[key];
 }
-function fkRanking(cls) {
-  return fkGroups().map(function (g) {
-    var all = [];
-    for (var s = 1; s <= 20; s++) {
-      var row = FK.data[cls + '/' + s];
-      if (row) g.numbers.forEach(function (n) { if (row[n - 1] !== null) all.push(row[n - 1]); });
-    }
-    if (!all.length) return null;
-    var sum = all.reduce(function (a, b) { return a + b; }, 0);
-    return { group: g.index, avg: Math.round(sum / all.length * 100) / 100 };
-  }).filter(Boolean).sort(function (a, b) { return b.avg - a.avg; })
-    .map(function (x, i) { x.rank = i + 1; return x; });
-}
 function fkAuth(cls, pw) {
   var real = FK.pwChanged ? '5678' : '1234';
   if (String(pw).trim() !== real) throw { message: '비밀번호가 맞지 않습니다.' };
 }
+
+/* 일주일 전 시험 하나를 미리 넣어둔다. 목록이 비면 날짜 화면을 볼 수 없다 */
+(function seed() {
+  var d = new Date(); d.setDate(d.getDate() - 7);
+  var iso = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  FK_NAMES.forEach(function (c) {
+    FK.dates[c + '/1'] = iso;
+    var row = [];
+    for (var i = 0; i < FK.n; i++) {
+      row.push(Math.random() < 0.1 ? null : 8 + Math.floor(Math.random() * 8));
+    }
+    FK.data[c + '/1'] = row;
+  });
+})();
 
 var FAKE = {
   getClassNames: function () { return FK_NAMES; },
@@ -248,22 +230,41 @@ var FAKE = {
     var sessions = [];
     for (var s = 1; s <= (FK.sessions || 20); s++) {
       var row = FK.data[cls + '/' + s] || [];
-      sessions.push({ no: s, filled: row.filter(function (v) { return v !== null; }).length, locked: !!FK.lock[s] });
+      var filled = row.filter(function (v) { return v !== null; }).length;
+      var date = FK.dates[cls + '/' + s] || '';
+      if (!date && !filled) continue;          // 안 쓴 줄은 목록에 없다
+      sessions.push({ no: s, date: date, filled: filled, locked: !!FK.lock[s] });
     }
     return {
       className: cls, studentCount: FK.n, groups: fkGroups(), sizes: fkSizes(FK.n, FK.g),
       canEditGroups: !sessions.some(function (x) { return x.locked; }),
       hasData: sessions.some(function (x) { return x.filled > 0; }),
-      sessions: sessions, ranking: fkRanking(cls)
+      sessions: sessions
     };
   },
-  getSession: function (cls, pw, s) { fkAuth(cls, pw); return { session: s, locked: !!FK.lock[s], scores: fkRow(cls, s).slice() }; },
+  getSession: function (cls, pw, s) {
+    fkAuth(cls, pw);
+    return { session: s, date: FK.dates[cls + '/' + s] || '',
+             locked: !!FK.lock[s], scores: fkRow(cls, s).slice() };
+  },
+  startSession: function (cls, pw) {
+    fkAuth(cls, pw);
+    for (var s = 1; s <= (FK.sessions || 20); s++) {
+      var row = FK.data[cls + '/' + s];
+      var used = FK.dates[cls + '/' + s] || (row && row.some(function (v) { return v !== null; }));
+      if (!used) return { session: s };
+    }
+    FK.sessions += 10;
+    return { session: FK.sessions - 9 };
+  },
   saveGroup: function (cls, pw, s, gi, vals) {
     fkAuth(cls, pw);
-    if (FK.lock[s]) throw { message: s + '회차는 선생님이 확정해서 잠갔습니다. 수정할 수 없습니다.' };
+    if (FK.lock[s]) throw { message: '선생님이 확정한 시험이라 수정할 수 없습니다.' };
+    var key = cls + '/' + s;
+    if (!FK.dates[key]) FK.dates[key] = fkToday();    // 첫 저장 때 오늘 날짜
     var row = fkRow(cls, s), g = fkGroups()[gi - 1];
     g.numbers.forEach(function (n, i) { row[n - 1] = vals[i]; });
-    return { ok: true, ranking: fkRanking(cls) };
+    return { ok: true, date: FK.dates[key] };
   },
   setGroupSizes: function (cls, pw, sizes) {
     fkAuth(cls, pw);
@@ -277,8 +278,7 @@ var FAKE = {
     fkAuth(cls, pw);
     FK.sessions = (FK.sessions || 20) + (Number(add) || 10);
     return FAKE.login(cls, pw);
-  },
-  getRanking: function (cls, pw) { fkAuth(cls, pw); return fkRanking(cls); }
+  }
 };
 
 var google = { script: {} };
@@ -321,9 +321,9 @@ function pvPw() {
 
 /* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
 function pvLock(on) {
-  FK.lock = on ? { 3: true } : {};
+  FK.lock = on ? { 1: true } : {};
   document.getElementById('pv-lockmsg').textContent = on
-    ? '3회차 잠금 상태 — 그룹 조정이 막힙니다'
+    ? '지난 시험 잠금 — 그룹 조정이 막힙니다'
     : '잠금 없음 — 실제 앱의 처음 상태입니다';
 }
 
@@ -359,6 +359,14 @@ function call(fn) {
   });
 }
 function $(id) { return document.getElementById(id); }
+
+/** '2026-09-07' → '9월 7일' */
+function dateLabel(iso) {
+  if (!iso) return '날짜 없음';
+  var p = String(iso).split('-');
+  if (p.length !== 3) return iso;
+  return Number(p[1]) + '월 ' + Number(p[2]) + '일';
+}
 function show(id) {
   var list = document.querySelectorAll('.screen');
   for (var i = 0; i < list.length; i++) list[i].classList.remove('on');
@@ -429,21 +437,25 @@ function openSessions() {
 }
 
 function drawSessions() {
-  $('slist').innerHTML = S.info.sessions.map(function (s) {
-    var tag = s.locked ? '🔒 확정됨' : (s.filled ? s.filled + '명 입력됨' : '비어 있음');
-    return '<button class="ghost" onclick="openSession(' + s.no + ')">' +
-           '<span>' + s.no + '회차</span><span class="tag">' + tag + '</span></button>';
-  }).join('');
+  var list = S.info.sessions.slice().reverse();   // 최근 시험이 위로
+  $('slist').innerHTML = list.length
+    ? list.map(function (s) {
+        var tag = s.locked ? '🔒 확정됨' : s.filled + '명 입력됨';
+        return '<button class="ghost" onclick="openSession(' + s.no + ')">' +
+               '<span>' + dateLabel(s.date) + '</span><span class="tag">' + tag + '</span></button>';
+      }).join('')
+    : '<div class="note" style="margin:14px 0 0">아직 친 시험이 없습니다.</div>';
+  $('e-session').textContent = '';
 }
 
-/** 회차가 모자라면 뒤에 10개를 더 붙인다. 빈 줄이라 기존 점수엔 영향이 없다 */
-function addMore() {
+/** 아직 안 쓴 줄을 서버에서 받아 그 자리로 들어간다 */
+function startNew() {
   $('app').classList.add('busy');
-  call('addSessions', S.cls, S.pw, 10).then(function (info) {
-    S.info = info;
-    drawSessions();
+  $('e-session').textContent = '';
+  call('startSession', S.cls, S.pw).then(function (r) {
+    openSession(r.session);
   }).catch(function (e) {
-    failed(null, e);
+    failed('e-session', e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 
@@ -528,6 +540,7 @@ function openSession(no) {
   call('getSession', S.cls, S.pw, no).then(function (d) {
     S.scores = d.scores;
     S.locked = d.locked;
+    S.date = d.date;                       // 아직 없으면 첫 저장 때 오늘 날짜가 붙는다
     S.gi = 0;
     drawGroup();
     show('s-input');
@@ -538,6 +551,7 @@ function drawGroup() {
   var g = S.info.groups[S.gi];
   var k = S.info.groups.length;
 
+  $('i-date').textContent = S.date ? dateLabel(S.date) + ' 시험' : '오늘 시험';
   $('dots').innerHTML = S.info.groups.map(function (_, i) {
     return i <= S.gi ? '<b>●</b>' : '○';
   }).join('');
@@ -560,7 +574,7 @@ function drawGroup() {
   }
 
   $('btn-prev').disabled = (S.gi === 0);
-  $('btn-next').textContent = (S.gi === k - 1) ? '저장하고 순위 보기' : '다음 →';
+  $('btn-next').textContent = (S.gi === k - 1) ? '저장하고 끝내기' : '다음 →';
   $('btn-next').disabled = S.locked;
   $('e-input').textContent = S.locked ? '이 회차는 확정되어 수정할 수 없습니다.' : '';
   refreshSum();
@@ -595,7 +609,7 @@ $('btn-prev').onclick = function () {
 $('btn-next').onclick = function () {
   var last = (S.gi === S.info.groups.length - 1);
   saveThen(function () {
-    if (last) { drawRank(); show('s-rank'); }
+    if (last) { drawDone(); show('s-done'); }
     else { S.gi++; drawGroup(); }
   });
 };
@@ -610,24 +624,23 @@ function saveThen(after) {
 
   call('saveGroup', S.cls, S.pw, S.session, g.index, vals).then(function (r) {
     g.numbers.forEach(function (num, i) { S.scores[num - 1] = vals[i]; });
-    S.info.ranking = r.ranking;
+    if (r.date) S.date = r.date;           // 첫 저장이면 서버가 오늘 날짜를 붙여 보낸다
     after();
   }).catch(function (e) {
     failed('e-input', e);
   }).then(function () { $('app').classList.remove('busy'); });
 }
 
-// ── ④ 순위 ──
-function drawRank() {
-  var medals = ['🥇', '🥈', '🥉'];
-  var r = S.info.ranking;
-  if (!r.length) { $('rank').innerHTML = '<div class="note">아직 입력된 점수가 없습니다.</div>'; return; }
-  $('rank').innerHTML = r.map(function (x, i) {
-    return '<div class="rk' + (i === 0 ? ' first' : '') + '">' +
-      '<span class="m">' + (medals[i] || x.rank) + '</span>' +
-      '<span class="g">Group ' + x.group + '</span>' +
-      '<span class="v">' + x.avg + '</span></div>';
-  }).join('');
+// ── ④ 완료 ──
+function drawDone() {
+  $('t-done').textContent = (S.date ? dateLabel(S.date) : '오늘') + ' · ' + S.info.className;
+  var entered = S.scores.filter(function (v) { return v !== null; }).length;
+  var absent = S.info.studentCount - entered;
+  $('done-sum').innerHTML =
+    '<div style="text-align:center;font-size:19px;line-height:2">' +
+    '입력한 학생 <b style="font-size:26px">' + entered + '</b>명' +
+    (absent ? '<br><span style="color:var(--dim);font-size:16px">결석 ' + absent + '명</span>' : '') +
+    '</div>';
 }
 </script>
 </body>

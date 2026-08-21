@@ -9,6 +9,7 @@ const T_CLASS = '__테스트반';
 const T_PW = '9999';
 const T_N = 6;   // 학생 6명
 const T_G = 3;   // 3명씩 → 그룹 2개
+const T_CFG = { name: T_CLASS, password: T_PW, n: T_N, g: T_G };
 
 function runTests() {
   var pass = 0, fail = 0;
@@ -32,7 +33,7 @@ function runTests() {
 
   setupTestClass_(ss);
   try {
-    Logger.log('── 단어왕 자체 점검 ──');
+    Logger.log('── quick-score 자체 점검 ──');
 
     check('틀린 비밀번호는 거부한다', function () {
       throws(function () { verify_(T_CLASS, '0000'); }, '틀린 비밀번호');
@@ -65,6 +66,32 @@ function runTests() {
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
       eq(sh.getRange(R_TOTAL, colSummary_(1)).getValue(), 10.8, '그룹1 누적');
+    });
+
+    check('첫 저장 때 오늘 날짜가 자동으로 적힌다', function () {
+      const sh = ss.getSheetByName(T_CLASS);
+      eq(dateText_(sh.getRange(sessionRow_(1), 1).getValue()), today_(), '1번째 시험 날짜');
+      eq(dateText_(sh.getRange(sessionRow_(1), 1).getValue()), today_(), '2번째 시험 날짜');
+    });
+
+    check('이미 날짜가 있으면 덮어쓰지 않는다', function () {
+      const sh = ss.getSheetByName(T_CLASS);
+      const cell = sh.getRange(sessionRow_(2), 1);
+      cell.setValue(new Date(2026, 0, 15));       // 선생님이 손으로 고친 상황
+      SpreadsheetApp.flush();
+      saveGroup(T_CLASS, T_PW, 2, 2, [5, 5, 5]);
+      SpreadsheetApp.flush();
+      eq(dateText_(cell.getValue()), '2026-01-15', '손으로 넣은 날짜');
+    });
+
+    check('안 쓴 줄은 회차 목록에 안 나온다', function () {
+      const list = listSessions_(T_CFG);
+      eq(list.length, 2, '목록에 든 시험 수');   // 1, 2번째 줄만 썼다
+      eq(list[0].no, 1, '첫 항목');
+    });
+
+    check('새 시험은 아직 안 쓴 첫 줄을 준다', function () {
+      eq(startSession(T_CLASS, T_PW).session, 3, '다음 빈 줄');
     });
 
     check('순위는 누적 평균이 높은 순', function () {
@@ -127,7 +154,7 @@ function runTests() {
       const before = sh.getRange(R_TOTAL, colSummary_(1)).getValue();
       addSessions(T_CLASS, T_PW, 5);
       SpreadsheetApp.flush();
-      eq(sessionCount_(sh), INIT_SESSIONS + 5, '늘어난 회차 수');
+      eq(sessionCount_(sh, T_CFG), INIT_SESSIONS + 5, '늘어난 회차 수');
       eq(sh.getRange(R_TOTAL, colSummary_(1)).getValue(), before, '누적 평균');
       eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), 10, '1회차 1번 점수');
     });
@@ -140,7 +167,7 @@ function runTests() {
     });
 
     check('없는 회차는 거부한다', function () {
-      throws(function () { saveGroup(T_CLASS, T_PW, 999, 1, [1, 1, 1]); }, '999회차');
+      throws(function () { saveGroup(T_CLASS, T_PW, 999, 1, [1, 1, 1]); }, '999번째 줄');
     });
 
   } finally {
@@ -157,7 +184,7 @@ function setupTestClass_(ss) {
   cleanupTestClass_(ss, null, null);
   ss.getSheetByName(S_CONFIG).appendRow([T_CLASS, T_PW, T_N, T_G]);
   SpreadsheetApp.flush();
-  buildClassSheet_(ss, { name: T_CLASS, password: T_PW, n: T_N, g: T_G });
+  buildClassSheet_(ss, T_CFG);
   SpreadsheetApp.flush();
 }
 
