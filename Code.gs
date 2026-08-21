@@ -472,6 +472,42 @@ function getRanking(className, password) {
 
 
 // ══════════════════════════════════════════
+//  스프레드시트 메뉴
+//
+//  쓰실 분이 setup 때문에 Apps Script 를 열지 않아도 되게 한다.
+//  스프레드시트를 열 때 자동으로 붙는다.
+// ══════════════════════════════════════════
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('quick-score')
+    .addItem('설치 / 갱신', 'menuSetup')
+    .addItem('자체 점검', 'menuTests')
+    .addToUi();
+}
+
+function menuSetup() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    ui.alert('quick-score', setup(), ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('quick-score — 문제가 있습니다', e.message, ui.ButtonSet.OK);
+  }
+}
+
+function menuTests() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    ui.alert('quick-score 자체 점검', runTests() + '\n\n자세한 내용은 Apps Script 실행 로그에 있습니다.',
+             ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('quick-score 자체 점검 — 실패', e.message + '\n\nApps Script 실행 로그를 확인하세요.',
+             ui.ButtonSet.OK);
+  }
+}
+
+
+// ══════════════════════════════════════════
 //  최초 설치 — 시트와 수식을 통째로 만들어준다
 // ══════════════════════════════════════════
 
