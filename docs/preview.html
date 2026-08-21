@@ -102,7 +102,7 @@
 <body>
 <button id="zoom" title="글자 크기">가</button>
 <div id="app">
-  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 미리 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요.<br>점수는 아래 <b>🎲</b>, 글자 크기는 오른쪽 위 <b>가</b>.<br>지난 시험 하나가 들어 있고, <b>＋ 새 시험 시작</b> 을 누르면 오늘 날짜로 새로 만들어집니다.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:11px"><button id="pv-auto" onclick="pvTheme('auto')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">📱 폰 설정</button><button id="pv-light" onclick="pvTheme('light')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">☀️ 밝게</button><button id="pv-dark" onclick="pvTheme('dark')" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center"><button onclick="pvLock(true)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 지난 시험 잠금</button><button onclick="pvLock(false)" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔓 잠금 해제</button></div><div id="pv-lockmsg" style="font-size:12.5px;margin-top:7px">잠금 없음 — 실제 앱의 처음 상태입니다</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px"><button onclick="pvPw()" style="margin:0;padding:9px 10px;font-size:13px;width:auto;flex:1 1 auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔑 선생님이 비번을 바꿈</button></div><div id="pv-pwmsg" style="font-size:12.5px;margin-top:7px">비밀번호 1234 — 정상</div></div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)"><b style="color:var(--ink)">미리보기</b> — 비밀번호는 넣어뒀습니다. <b style="color:var(--ink)">들어가기</b>만 누르세요. 지난 시험 하나가 들어 있습니다.<div style="display:flex;gap:6px;margin-top:11px"><button id="pv-theme" onclick="pvTheme()" style="margin:0;padding:10px 6px;font-size:13px;width:auto;flex:1 1 0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🌙 어둡게</button><button id="pv-lock" onclick="pvLock()" style="margin:0;padding:10px 6px;font-size:13px;width:auto;flex:1 1 0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔒 잠가보기</button><button id="pv-pw" onclick="pvPw()" style="margin:0;padding:10px 6px;font-size:13px;width:auto;flex:1 1 0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px">🔑 비번 바뀜</button></div></div>
 
   <!-- ① 로그인 -->
   <section id="s-login" class="screen on">
@@ -323,55 +323,38 @@ Object.defineProperty(google.script, 'run', {
   }
 });
 
-/* 미리보기에서만: 밝게 / 어둡게 강제 전환. 실제 앱은 폰 설정을 자동으로 따른다 */
+/* ───── 미리보기 조작 ─────
+   실제 앱에는 없는 버튼들이다. 지금 상태를 버튼 이름에 담아 안내 줄을 없앴다. */
 var LIGHT = { bg:'#f6f4fc', card:'#ffffff', line:'#e4dff1', ink:'#211b33', dim:'#6d6483', accent:'#6c4ed9', hi:'#f1ecfd' };
 var DARK  = { bg:'#15131f', card:'#1e1b2b', line:'#322d45', ink:'#ece9f5', dim:'#9a93b3', accent:'#8a68ec', hi:'#2a2440' };
-function pvTheme(mode) {
+var pvDark = null;                 /* null 이면 폰 설정을 그대로 따른다 */
+
+function pvTheme() {
+  pvDark = (pvDark === null) ? true : (pvDark ? false : null);
   var r = document.documentElement.style;
   ['bg','card','line','ink','dim','accent','hi'].forEach(function (k) { r.removeProperty('--' + k); });
-  if (mode !== 'auto') { var v = (mode === 'dark') ? DARK : LIGHT; for (var k in v) r.setProperty('--' + k, v[k]); }
-  ['auto','light','dark'].forEach(function (m) {
-    var b = document.getElementById('pv-' + m);
-    b.style.fontWeight = (m === mode) ? '700' : '400';
-  });
+  if (pvDark !== null) {
+    var v = pvDark ? DARK : LIGHT;
+    for (var k in v) r.setProperty('--' + k, v[k]);
+  }
+  document.getElementById('pv-theme').textContent =
+    pvDark === null ? '🌙 어둡게' : (pvDark ? '☀️ 밝게' : '📱 폰 설정');
 }
 
-/* 선생님이 비밀번호를 바꾼 상황 흉내 */
+function pvLock() {
+  var on = !FK.lock[1];
+  FK.lock = on ? { 1: true } : {};
+  document.getElementById('pv-lock').textContent = on ? '🔓 잠금 풀기' : '🔒 잠가보기';
+}
+
 function pvPw() {
   FK.pwChanged = !FK.pwChanged;
-  document.getElementById('pv-pwmsg').textContent = FK.pwChanged
-    ? '비밀번호가 1234 → 5678 로 바뀐 상태. 다음 저장에서 안내 화면이 뜹니다'
-    : '비밀번호 1234 — 정상';
-}
-
-/* 미리보기에서 3회차 잠금을 껐다 켜서 그룹 조정을 시험해볼 수 있게 */
-function pvLock(on) {
-  FK.lock = on ? { 1: true } : {};
-  document.getElementById('pv-lockmsg').textContent = on
-    ? '지난 시험 잠금 — 그룹 조정이 막힙니다'
-    : '잠금 없음 — 실제 앱의 처음 상태입니다';
+  document.getElementById('pv-pw').textContent = FK.pwChanged ? '🔑 비번 되돌리기' : '🔑 비번 바뀜';
 }
 
 window.addEventListener('load', function () {
-  pvTheme('auto');
   /* 비밀번호를 미리 채워둔다. 미리보기에서 굳이 타이핑할 이유가 없다 */
   document.getElementById('pw').value = '1234';
-  var d = document.createElement('button');
-  d.textContent = '🎲 이 그룹 랜덤 채우기';
-  d.style.cssText = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:auto;margin:0;' +
-    'padding:13px 20px;background:var(--accent);color:#fff;border-radius:26px;font-size:15px;' +
-    'box-shadow:0 4px 16px rgba(0,0,0,.28);z-index:99';
-  d.onclick = function () {
-    var ins = document.querySelectorAll('#rows input');
-    for (var i = 0; i < ins.length; i++) {
-      ins[i].value = (Math.random() < 0.12) ? '' : Math.floor(8 + Math.random() * 8);
-      ins[i].dispatchEvent(new Event('input'));
-    }
-  };
-  document.body.appendChild(d);
-  setInterval(function () {
-    d.style.display = document.getElementById('s-input').classList.contains('on') ? 'block' : 'none';
-  }, 200);
 });
 </script>
 
