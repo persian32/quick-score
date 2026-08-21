@@ -166,6 +166,21 @@ function runTests() {
       eq(sh.getRange(sessionRow_(INIT_SESSIONS + 3), colAvg_(T_N, 1)).getValue(), 10, '새 회차 평균');
     });
 
+    check('학생수를 안 채운 반은 setup 이 건너뛴다', function () {
+      // 학생수 빈칸으로 반을 하나 더 넣고 setup 을 돌려도 터지지 않아야 한다
+      const cfg = ss.getSheetByName(S_CONFIG);
+      cfg.appendRow(['__빈반', '1111', '', 4]);
+      SpreadsheetApp.flush();
+      const msg = setup();
+      eq(msg.indexOf('__빈반') >= 0, true, '건너뛴 반을 알려주는가');
+      eq(ss.getSheetByName('__빈반') === null, true, '시트를 만들지 않았는가');
+      const names = cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
+      for (var i = names.length - 1; i >= 1; i--) {
+        if (String(names[i][0]).trim() === '__빈반') cfg.deleteRow(i + 1);
+      }
+      SpreadsheetApp.flush();
+    });
+
     check('없는 회차는 거부한다', function () {
       throws(function () { saveGroup(T_CLASS, T_PW, 999, 1, [1, 1, 1]); }, '999번째 줄');
     });

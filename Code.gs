@@ -68,6 +68,7 @@ function groupSizes_(n, g) {
     }
     return g;
   }
+  if (!n || n < 1) throw new Error('학생수가 비어 있습니다. 설정 시트를 확인하세요.');
   const k = Math.max(1, Math.floor(n / g));   // 목표 인원을 채우는 그룹 수
   const base = Math.floor(n / k);
   const rem = n % k;
@@ -467,18 +468,28 @@ function setup() {
   ensureLogSheet_(ss);
 
   const config = getConfig_();
-  const made = [];
+  const made = [], skipped = [];
+  const ready = [];
+
   config.forEach(function (c) {
+    // 학생수를 아직 안 채운 반은 시트를 만들 수 없다.
+    // 0명으로 그룹을 나누려다 터지므로 여기서 막는다
+    if (!c.n || c.n < 1) { skipped.push(c.name); return; }
+    ready.push(c);
     if (ss.getSheetByName(c.name)) return;   // 이미 있으면 통과
     buildClassSheet_(ss, c);
     made.push(c.name);
   });
 
-  buildAllSheet_(ss, config);
+  // 시트가 없는 반을 '전체'가 참조하면 #REF! 가 뜬다. 만들어진 반만 넣는다
+  buildAllSheet_(ss, ready);
 
-  const msg = made.length
+  var msg = made.length
     ? '새로 만든 반 시트: ' + made.join(', ')
-    : '새로 만든 반 시트 없음 (이미 다 있음)';
+    : '새로 만든 반 시트 없음';
+  if (skipped.length) {
+    msg += '\n설정 시트에 학생수를 채우고 다시 실행하세요 — 건너뛴 반: ' + skipped.join(', ');
+  }
   Logger.log('setup 완료. ' + msg);
   return msg;
 }

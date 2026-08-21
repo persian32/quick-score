@@ -24,6 +24,13 @@ t('26명 4명씩 → 4,4,4,4,5,5',
   () => a.deepEqual(groupSizes_(26, 4), [4, 4, 4, 4, 5, 5]));
 t('25명 5명씩 → 5명 × 5', () => a.deepEqual(groupSizes_(25, 5), [5, 5, 5, 5, 5]));
 t('학생이 그룹 인원보다 적어도 안 죽는다', () => a.deepEqual(groupSizes_(3, 4), [3]));
+t('학생수가 비어 있으면 분명한 메시지로 막는다', () => {
+  // 설정 시트의 학생수를 안 채우면 Number('') === 0 이 되어 여기로 온다.
+  // 막지 않으면 폭 0짜리 범위를 만들다 "columns must be at least 1" 로 터진다
+  for (const bad of [0, NaN, undefined, null]) {
+    a.throws(() => groupSizes_(bad, 4), /학생수가 비어 있습니다/, String(bad));
+  }
+});
 t('어떤 인원이든 합이 전체 학생수와 같다', () => {
   for (let s = 1; s <= 40; s++) for (let g = 2; g <= 6; g++) {
     a.equal(groupSizes_(s, g).reduce((x, y) => x + y, 0), s, s + '명 ' + g + '씩');
