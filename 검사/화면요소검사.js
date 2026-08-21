@@ -68,4 +68,17 @@ t('CSS 중괄호 짝이 맞는다', () => {
   a.equal((css.match(/{/g) || []).length, (css.match(/}/g) || []).length);
 });
 
+// 문서에 적힌 Apps Script 검사 개수가 실제와 맞는지 (함수 정의를 세어 틀린 적이 있다)
+t('문서의 runTests 검사 개수가 실제와 맞는다', () => {
+  const tests = fs.readFileSync(__dirname + '/../Tests.gs', 'utf8');
+  const real = (tests.match(/\bcheck\('/g) || []).length;
+  for (const doc of ['README.md', '배포안내.md']) {
+    const text = fs.readFileSync(__dirname + '/../' + doc, 'utf8');
+    for (const m of text.matchAll(/통과 (\d+) \/ 실패 0|runTests` 를 실행합니다 \((\d+)개\)/g)) {
+      const said = Number(m[1] || m[2]);
+      a.equal(said, real, doc + ' 에 ' + said + '개라고 적혀 있는데 실제는 ' + real + '개');
+    }
+  }
+});
+
 console.log('\n통과 ' + n + ' / 실패 0');
