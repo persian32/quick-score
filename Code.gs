@@ -147,7 +147,8 @@ function sessionRow_(session) { return R_FIRST + (session - 1) * ROWS_PER_SESSIO
 /** 설정 시트를 읽어 반 목록으로 돌려준다 */
 function getConfig_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(S_CONFIG);
-  if (!sh) throw new Error('설정 시트가 없습니다. setup()을 먼저 실행하세요.');
+  if (!sh) throw new Error('설정 시트가 없습니다. 메뉴에서 quick-score → 설치 / 갱신 을 눌러주세요.');
+  if (sh.getLastRow() < 1) return [];   // 통째로 비워진 경우
   const rows = sh.getDataRange().getValues().slice(1);
   return rows
     .filter(function (r) { return String(r[0]).trim() !== ''; })
@@ -163,6 +164,29 @@ function getConfig_() {
              : Number(raw)
       };
     });
+}
+
+/**
+ * 반 시트를 가져온다. 없으면 무엇을 해야 하는지 알려준다.
+ *
+ * 선생님이 시트를 지우거나 아직 안 만든 상태에서 도우미가 들어오면
+ * 예전에는 "null 의 속성을 읽을 수 없습니다" 같은 말로 죽었다.
+ */
+function classSheet_(c) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  if (!sh) {
+    throw new Error(c.name + ' 시트가 아직 없습니다. 선생님께 말씀드리세요 — ' +
+                    '스프레드시트 메뉴의 quick-score → 설치 / 갱신 을 눌러야 합니다.');
+  }
+  return sh;
+}
+
+/** 로그 시트. 지워졌으면 다시 만든다 — 기록 때문에 저장이 막히면 안 된다 */
+function logSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(S_LOG);
+  if (!sh) { ensureLogSheet_(ss); sh = ss.getSheetByName(S_LOG); }
+  return sh;
 }
 
 /**
@@ -251,7 +275,7 @@ function login(className, password) {
 function setGroupSizes(className, password, sizes) {
   const c = verify_(className, password);
   const ss = SpreadsheetApp.getActive();
-  const sh = ss.getSheetByName(c.name);
+  const sh = classSheet_(c);
 
   const total = sizes.reduce(function (a, b) { return a + b; }, 0);
   if (total !== c.n) throw new Error('그룹 인원 합계 ' + total + '명이 학생수 ' + c.n + '명과 다릅니다.');
@@ -283,7 +307,7 @@ function setGroupSizes(className, password, sizes) {
  */
 function startSession(className, password) {
   const c = verify_(className, password);
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const sc = sessionCount_(sh, c);
 
   const dates = sh.getRange(R_FIRST, 1, sc, 1).getValues();
@@ -304,7 +328,7 @@ function startSession(className, password) {
  */
 function addSessions(className, password, add) {
   const c = verify_(className, password);
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const cur = sessionCount_(sh, c);
   add = Math.max(1, Math.min(50, Number(add) || 10));
 
@@ -325,7 +349,7 @@ function addSessions(className, password, add) {
 /** 설정 시트의 그룹당인원 칸을 고쳐 쓴다 */
 function writeConfigGroups_(className, text) {
   const sh = SpreadsheetApp.getActive().getSheetByName(S_CONFIG);
-  const names = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+  const names = sh.getLastRow() < 1 ? [] : sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
   for (var i = 1; i < names.length; i++) {
     if (String(names[i][0]).trim() === className) {
       sh.getRange(i + 1, 4).setValue(text);
@@ -338,13 +362,13 @@ function writeConfigGroups_(className, text) {
 
 /** 로그 한 줄 */
 function logRow_(row) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(S_LOG);
+  const sh = logSheet_();
   sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
 }
 
 /** 각 회차의 상태(입력 있음 / 잠김) */
 function listSessions_(c) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const sc = sessionCount_(sh, c);
   const dates = sh.getRange(R_FIRST, 1, sc, 1).getValues();
   const values = sh.getRange(R_FIRST, colStudent_(1), sc, c.n).getValues();
@@ -364,7 +388,7 @@ function listSessions_(c) {
 /** 특정 회차에 이미 들어있는 점수 (이어서 입력할 때 씀) */
 function getSession(className, password, session) {
   const c = verify_(className, password);
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const k = groupCount_(c.n, c.g);
   const row = sessionRow_(session);
 
@@ -388,7 +412,7 @@ function getSession(className, password, session) {
  */
 function saveGroup(className, password, session, groupIndex, scores) {
   const c = verify_(className, password);
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const k = groupCount_(c.n, c.g);
   const row = sessionRow_(session);
 
@@ -425,7 +449,7 @@ function saveGroup(className, password, session, groupIndex, scores) {
 
 /** 바뀐 칸만 로그 시트에 한 줄씩 남긴다 */
 function logChanges_(className, sessionLabel, firstStudentNo, before, after) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(S_LOG);
+  const sh = logSheet_();
   const now = new Date();
   const rows = [];
 
@@ -456,7 +480,7 @@ function logChanges_(className, sessionLabel, firstStudentNo, before, after) {
 
 function getRanking(className, password) {
   const c = verify_(className, password);
-  const sh = SpreadsheetApp.getActive().getSheetByName(c.name);
+  const sh = classSheet_(c);
   const k = groupCount_(c.n, c.g);
 
   const totals = sh.getRange(R_TOTAL, colSummary_(1), 1, k).getValues()[0];
@@ -562,8 +586,11 @@ function setup() {
 }
 
 function ensureConfigSheet_(ss) {
-  if (ss.getSheetByName(S_CONFIG)) return;
-  const sh = ss.insertSheet(S_CONFIG, 0);
+  var sh = ss.getSheetByName(S_CONFIG);
+  // 시트가 남아 있어도 머리글까지 지워졌으면 다시 세운다.
+  // 통째로 비면 getLastRow()가 0이라 어디서든 범위를 못 만들고 죽는다
+  if (sh && sh.getLastRow() >= 1) return;
+  if (!sh) sh = ss.insertSheet(S_CONFIG, 0);
   sh.getRange(1, 1, 1, 4).setValues([['반이름', '비밀번호', '학생수', '그룹당인원']])
     .setFontWeight('bold').setBackground('#e8eaed');
   // 반 이름과 그룹당인원 기본값만 채운다.
@@ -584,8 +611,9 @@ function ensureConfigSheet_(ss) {
 }
 
 function ensureLogSheet_(ss) {
-  if (ss.getSheetByName(S_LOG)) return;
-  const sh = ss.insertSheet(S_LOG);
+  var sh = ss.getSheetByName(S_LOG);
+  if (sh && sh.getLastRow() >= 1) return;
+  if (!sh) sh = ss.insertSheet(S_LOG);
   sh.getRange(1, 1, 1, 6).setValues([['시각', '반', '시험날짜', '학생', '이전값', '새값']])
     .setFontWeight('bold').setBackground('#e8eaed');
   sh.setFrozenRows(1);

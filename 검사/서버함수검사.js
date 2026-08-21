@@ -40,4 +40,34 @@ t('sessionCount_ 를 부르는 곳은 전부 반 설정을 넘긴다', () => {
   a.deepEqual(bad, [], 'sessionCount_ 에 설정을 안 넘긴 곳이 있음');
 });
 
+t('스스로를 무한히 부르는 함수가 없다', () => {
+  // 이름을 일괄 치환하다 함수 본문 안까지 바꿔 무한 재귀를 만든 적이 있다
+  for (const m of all.matchAll(/function\s+(\w+)\s*\(([^)]*)\)\s*{/g)) {
+    const name = m[1];
+    const start = m.index + m[0].length;
+    let depth = 1, i = start;
+    while (i < all.length && depth > 0) {
+      if (all[i] === '{') depth++;
+      else if (all[i] === '}') depth--;
+      i++;
+    }
+    const body = all.slice(start, i);
+    const self = (body.match(new RegExp('\\b' + name + '\\s*\\(', 'g')) || []).length;
+    // 재귀가 필요한 함수는 지금 없다. 생기면 여기에 예외로 적는다
+    a.equal(self, 0, name + ' 이 자기 자신을 ' + self + '번 부른다');
+  }
+});
+
+t('빈 시트에서 범위를 만들려는 곳이 없다', () => {
+  // getLastRow() 가 0이면 getRange(1,1,0,1) 이 되어
+  // "범위에 속한 행의 개수는 1개 이상이어야 합니다" 로 죽는다
+  const bad = [...all.matchAll(/getRange\(\s*1\s*,\s*1\s*,\s*(\w+)\.getLastRow\(\)/g)]
+    .filter(m => {
+      const before = all.slice(Math.max(0, m.index - 120), m.index);
+      return !before.includes('getLastRow() < 1');
+    })
+    .map(m => m[0]);
+  a.deepEqual(bad, [], '0행일 때를 안 막은 곳: ' + bad.join(', '));
+});
+
 console.log('\n통과 ' + n + ' / 실패 0');

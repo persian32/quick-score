@@ -174,7 +174,7 @@ function runTests() {
       const msg = setup();
       eq(msg.indexOf('__빈반') >= 0, true, '건너뛴 반을 알려주는가');
       eq(ss.getSheetByName('__빈반') === null, true, '시트를 만들지 않았는가');
-      const names = cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
+      const names = cfg.getLastRow() < 1 ? [] : cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
       for (var i = names.length - 1; i >= 1; i--) {
         if (String(names[i][0]).trim() === '__빈반') cfg.deleteRow(i + 1);
       }
@@ -185,7 +185,7 @@ function runTests() {
       // 시트는 만들어질 때의 학생수로 열이 짜인다. 설정만 바꾸면 앱이 그 반을 못 연다.
       // 예전에는 "행의 개수는 1개 이상이어야 합니다" 로 터져서 원인을 알 수 없었다
       const cfg = ss.getSheetByName(S_CONFIG);
-      const names = cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
+      const names = cfg.getLastRow() < 1 ? [] : cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
       var r = -1;
       for (var i = 1; i < names.length; i++) {
         if (String(names[i][0]).trim() === T_CLASS) r = i + 1;
@@ -198,6 +198,25 @@ function runTests() {
       eq(msg.indexOf('학생수가 다릅니다') >= 0, true, 'setup 이 알려주는가');
       cfg.getRange(r, 3).setValue(T_N);          // 되돌리기
       SpreadsheetApp.flush();
+    });
+
+    check('반 시트가 없으면 무엇을 해야 하는지 알려준다', function () {
+      // 선생님이 시트를 지운 뒤 도우미가 들어오면 예전에는
+      // "null 의 속성을 읽을 수 없습니다" 로 죽어서 원인을 알 수 없었다
+      const sh = ss.getSheetByName(T_CLASS);
+      ss.deleteSheet(sh);
+      try {
+        var got = '';
+        try { listSessions_(T_CFG); } catch (e) { got = e.message; }
+        eq(got.indexOf('설치 / 갱신') >= 0, true, '무엇을 해야 하는지 알려주는가: ' + got);
+      } finally {
+        buildClassSheet_(ss, T_CFG);   // 뒤 검사들을 위해 되살린다
+        SpreadsheetApp.flush();
+        saveGroup(T_CLASS, T_PW, 1, 1, [10, null, 14]);
+        saveGroup(T_CLASS, T_PW, 1, 2, [9, 9, 9]);
+        saveGroup(T_CLASS, T_PW, 2, 1, [8, 12, 10]);
+        SpreadsheetApp.flush();
+      }
     });
 
     check('없는 회차는 거부한다', function () {
@@ -227,7 +246,7 @@ function cleanupTestClass_(ss, logSh, logBefore) {
   if (sh) ss.deleteSheet(sh);
 
   const cfg = ss.getSheetByName(S_CONFIG);
-  const names = cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
+  const names = cfg.getLastRow() < 1 ? [] : cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
   for (var i = names.length - 1; i >= 1; i--) {
     if (String(names[i][0]).trim() === T_CLASS) cfg.deleteRow(i + 1);
   }
