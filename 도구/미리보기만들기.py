@@ -11,7 +11,7 @@ os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))  # 저�
 STUB = r'''
 <script>
 /* ───── 미리보기 전용 가짜 서버 (실제 앱은 Index.html) ───── */
-var FK = { n: 25, g: 4, data: {}, dates: {}, lock: {}, sessions: 20, pwChanged: false };
+var FK = { n: 25, g: 4, data: {}, dates: {}, lock: {}, sessions: 20 };
 function fkToday() {
   var d = new Date();
   return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
@@ -40,8 +40,7 @@ function fkRow(cls, s) {
   return FK.data[key];
 }
 function fkAuth(cls, pw) {
-  var real = FK.pwChanged ? '5678' : '1234';
-  if (String(pw).trim() !== real) throw { message: '비밀번호가 맞지 않습니다.' };
+  if (String(pw).trim() !== '1234') throw { message: '비밀번호가 맞지 않습니다.' };
 }
 
 /* 일주일 전 시험 하나를 미리 넣어둔다. 목록이 비면 날짜 화면을 볼 수 없다 */
@@ -151,19 +150,6 @@ function pvTheme() {
     pvDark === null ? '🌙 어둡게' : (pvDark ? '☀️ 밝게' : '📱 폰 설정');
 }
 
-function pvLock() {
-  var on = !FK.lock[1];
-  FK.lock = on ? { 1: true } : {};
-  document.getElementById('pv-lock').textContent = on ? '🔓 잠금 풀기' : '🔒 잠가보기';
-  /* 이미 그려진 목록은 저절로 안 바뀐다. 눌렀는데 반응이 없으면 고장으로 보인다 */
-  if (typeof S !== 'undefined' && S.info) openSessions();
-}
-
-function pvPw() {
-  FK.pwChanged = !FK.pwChanged;
-  document.getElementById('pv-pw').textContent = FK.pwChanged ? '🔑 비번 되돌리기' : '🔑 비번 바뀜';
-}
-
 window.addEventListener('load', function () {
   /* 비밀번호를 미리 채워둔다. 미리보기에서 굳이 타이핑할 이유가 없다 */
   document.getElementById('pw').value = '1234';
@@ -171,7 +157,7 @@ window.addEventListener('load', function () {
 </script>
 '''
 
-BTN = ('margin:0;padding:10px 6px;font-size:13px;width:auto;flex:1 1 0;'
+BTN = ('margin:0;padding:10px 14px;font-size:13px;width:auto;'
        'background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px')
 
 BANNER = (
@@ -179,12 +165,9 @@ BANNER = (
   '  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;'
   'padding:13px;font-size:13.5px;line-height:1.7;margin-bottom:14px;color:var(--dim)">'
   '<b style="color:var(--ink)">미리보기</b> — 비밀번호는 넣어뒀습니다. '
-  '<b style="color:var(--ink)">들어가기</b>만 누르세요. 지난 시험 하나가 들어 있습니다.<br>'
-  '<b>🔑 비번 바뀜</b> 은 로그인해서 입력하다 눌러야 안내 화면이 뜹니다.'
-  '<div style="display:flex;gap:6px;margin-top:11px">'
+  '<b style="color:var(--ink)">들어가기</b>만 누르세요. 지난 시험 하나가 들어 있습니다.'
+  '<div style="margin-top:11px">'
   f'<button id="pv-theme" onclick="pvTheme()" style="{BTN}">🌙 어둡게</button>'
-  f'<button id="pv-lock" onclick="pvLock()" style="{BTN}">🔒 잠가보기</button>'
-  f'<button id="pv-pw" onclick="pvPw()" style="{BTN}">🔑 비번 바뀜</button>'
   '</div></div>')
 
 src = open('Index.html', encoding='utf-8').read()
