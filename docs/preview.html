@@ -46,6 +46,9 @@
 
   /* 회차 목록 */
   .slist button { margin: 0 0 11px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .srow { display: flex; gap: 8px; margin: 0 0 11px; }
+  .srow button { margin: 0; flex: 1; }
+  .srow .avg { flex: 0 0 76px; justify-content: center; font-size: 17px; }
   .tag { font-size: 15px; font-weight: 400; color: var(--dim); }
 
   /* 진행 점 — 누르면 그 그룹으로 바로 간다 */
@@ -70,6 +73,13 @@
   .sum { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px;
          text-align: center; font-size: 19px; }
   .sum b { font-size: 31px; }
+
+  .gavg { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 10px; }
+  .gavg .cap { font-size: 15px; color: var(--dim); text-align: center; margin-bottom: 6px; }
+  .gavg .g { display: flex; align-items: baseline; gap: 10px; margin: 12px 0; }
+  .gavg .g .nm { flex: 1; font-size: 19px; font-weight: 600; }
+  .gavg .g .av { font-size: 27px; font-weight: 600; }
+  .gavg .g .cnt { width: 54px; text-align: right; font-size: 15px; color: var(--dim); }
 
   .nav { display: flex; gap: 10px; }
   .nav button { flex: 1; }
@@ -188,10 +198,11 @@
 
   <!-- ④ 완료 -->
   <section id="s-done" class="screen">
-    <h1>다 넣었습니다</h1>
+    <h1 id="done-h">다 넣었습니다</h1>
     <div class="sub" id="t-done"></div>
     <div class="card">
       <div id="done-sum"></div>
+      <div id="done-avg" class="gavg"></div>
       <button onclick="openSessions()">시험 목록으로</button>
       <button class="ghost" onclick="show('s-login')">나가기</button>
     </div>
@@ -439,11 +450,32 @@ function drawSessions() {
   $('slist').innerHTML = list.length
     ? list.map(function (s) {
         var tag = s.locked ? '🔒 확정됨' : s.filled + '명 입력됨';
-        return '<button class="ghost" onclick="openSession(' + s.no + ')">' +
-               '<span>' + dateLabel(s.date) + '</span><span class="tag">' + tag + '</span></button>';
+        // 점수가 하나도 없으면 평균도 뜻이 없다. 버튼을 안 만든다
+        var avg = s.filled
+          ? '<button class="ghost avg" onclick="openAvg(' + s.no + ')">평균</button>' : '';
+        return '<div class="srow">' +
+               '<button class="ghost" onclick="openSession(' + s.no + ')">' +
+               '<span>' + dateLabel(s.date) + '</span><span class="tag">' + tag + '</span></button>' +
+               avg + '</div>';
       }).join('')
     : '<div class="note" style="margin:14px 0 0">아직 친 시험이 없습니다.</div>';
   $('e-session').textContent = '';
+}
+
+/** 목록에서 평균만 보고 나온다. 점수 칸은 열지 않으므로 실수로 고칠 일이 없다 */
+function openAvg(no) {
+  $('app').classList.add('busy');
+  $('e-session').textContent = '';
+  call('getSession', S.cls, S.pw, no).then(function (d) {
+    S.session = no;
+    S.scores = d.scores;
+    S.locked = d.locked;
+    S.date = d.date;
+    drawDone(true);
+    show('s-done');
+  }).catch(function (e) {
+    failed('e-session', e);
+  }).then(function () { $('app').classList.remove('busy'); });
 }
 
 /** 아직 안 쓴 줄을 서버에서 받아 그 자리로 들어간다 */
@@ -642,7 +674,8 @@ function saveThen(after) {
 }
 
 // ── ④ 완료 ──
-function drawDone() {
+function drawDone(viewOnly) {
+  $('done-h').textContent = viewOnly ? '그날 결과' : '다 넣었습니다';
   $('t-done').textContent = (S.date ? dateLabel(S.date) : '오늘') + ' · ' + S.info.className;
   var entered = S.scores.filter(function (v) { return v !== null; }).length;
   var absent = S.info.studentCount - entered;
@@ -651,6 +684,22 @@ function drawDone() {
     '입력한 학생 <b style="font-size:26px">' + entered + '</b>명' +
     (absent ? '<br><span style="color:var(--dim);font-size:16px">결석 ' + absent + '명</span>' : '') +
     '</div>';
+
+  // 그날 그룹별 평균. 학생이 도우미에게 "우리 그룹 몇 점?" 하고 묻는 자리다.
+  // 등수는 일부러 안 붙인다 - 4~5명 그룹은 결석 한 명으로 순위가 뒤집힌다
+  $('done-avg').innerHTML = '<div class="cap">그룹별 평균</div>' +
+    S.info.groups.map(function (g) {
+      var vals = g.numbers
+        .map(function (num) { return S.scores[num - 1]; })
+        .filter(function (v) { return v !== null; });
+      var avg = vals.length
+        ? Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length * 10) / 10
+        : null;
+      return '<div class="g">' +
+        '<span class="nm">' + g.label + '</span>' +
+        '<span class="av">' + (avg === null ? '\u2013' : avg) + '</span>' +
+        '<span class="cnt">' + vals.length + '명</span></div>';
+    }).join('');
 }
 </script>
 </body>

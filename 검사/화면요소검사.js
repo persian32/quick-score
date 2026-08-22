@@ -52,7 +52,7 @@ t('화면이 기대하는 CSS 규칙이 살아 있다', () => {
   // 지우다 범위를 넘겨 스타일이 통째로 날아간 적이 있다. 그때 화면이 무너졌다
   const need = ['#app', '#zoom', '.screen', '.screen.on', '.card', '.slist',
                 '.dots', '.dot.now', '.dot.done', '.row', '.sum', '.nav',
-                '.grow', '.mini', '.note', '.err', '.tag'];
+                '.grow', '.mini', '.note', '.err', '.tag', '.gavg', '.srow'];
   const missing = need.filter(sel => !css.includes(sel));
   a.deepEqual(missing, [], 'CSS 규칙이 없어짐: ' + missing.join(', '));
 });
