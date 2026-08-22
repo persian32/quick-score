@@ -14,6 +14,18 @@
 | 📱 도우미 화면 | https://persian32.github.io/quick-score/preview.html |
 | 💻 교사 화면 | https://persian32.github.io/quick-score/teacher.html |
 
+## 학생에게 줄 링크
+
+```
+https://persian32.github.io/quick-score/app.html?u=❰배포 주소❱
+└──────────── 아이콘 껍데기 (고정) ────────────┘   └─ 교사마다 다름 ─┘
+```
+
+앞부분은 모든 교사가 같고 `?u=` 뒤만 각자 다릅니다. **외울 필요 없이
+[안내 페이지](https://persian32.github.io/quick-score/)에서 배포 주소를 붙여넣으면 만들어집니다.**
+
+`script.google.com/…/exec` 주소를 그대로 주면 홈 화면 아이콘이 구글 것으로 붙습니다.
+
 ## 구조
 
 ```

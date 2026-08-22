@@ -54,6 +54,29 @@
     <span class="go">열어보기 →</span>
   </a>
 
+  <div class="box" id="maker">
+    <h3>🔗 학생에게 줄 링크 만들기</h3>
+    <p style="margin:0 0 12px">설치를 마치고 <b>배포</b>까지 하면 <code>…/exec</code> 로 끝나는 주소가 나옵니다.
+       그 주소를 아래에 붙여넣으세요.</p>
+    <input id="ex" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+           placeholder="https://script.google.com/macros/s/.../exec"
+           style="width:100%;box-sizing:border-box;font-size:15px;padding:13px;border:1px solid var(--line);
+                  border-radius:10px;background:var(--card);color:var(--ink);font-family:inherit">
+    <div id="out" style="display:none;margin-top:14px">
+      <p style="margin:0 0 8px;font-size:14px;color:var(--dim)">학생에게 이 주소를 보내세요</p>
+      <div id="link" style="font-size:13px;line-height:1.6;word-break:break-all;background:var(--bg);
+                            border:1px solid var(--line);border-radius:10px;padding:12px"></div>
+      <button onclick="copyLink()"
+              style="width:100%;margin-top:10px;padding:14px;border:0;border-radius:10px;
+                     background:var(--accent);color:#fff;font-size:16px;font-weight:600;font-family:inherit">
+        복사하기</button>
+      <p style="margin:12px 0 0;font-size:14px;color:var(--dim);line-height:1.7">
+        이 주소로 열어야 홈 화면에 <b>quick-score 아이콘</b>이 붙습니다.<br>
+        <code>script.google.com</code> 주소를 그대로 주면 구글 아이콘이 뜹니다.</p>
+    </div>
+    <p id="warn" style="display:none;margin:12px 0 0;font-size:14px;color:#c0392b"></p>
+  </div>
+
   <div class="box">
     <h3>어떻게 굴러가나</h3>
     <p>도우미가 폰에서 입력 → 구글 서버(Apps Script)가 비밀번호와 잠금을 확인 →
@@ -77,5 +100,44 @@
     소스와 설치 안내: <a href="https://github.com/persian32/quick-score">github.com/persian32/quick-score</a>
   </footer>
 </main>
+<script>
+/* 배포 주소를 붙여넣으면 학생용 링크를 만들어준다.
+   'app.html?u=' 를 사람이 외우게 두면 반드시 잊어버린다 */
+var BASE = location.origin + location.pathname.replace(/[^/]*$/, '') + 'app.html?u=';
+
+function build() {
+  var v = document.getElementById('ex').value.trim();
+  var out = document.getElementById('out'), warn = document.getElementById('warn');
+  if (!v) { out.style.display = 'none'; warn.style.display = 'none'; return; }
+
+  if (v.indexOf('https://script.google.com/') !== 0) {
+    out.style.display = 'none';
+    warn.style.display = 'block';
+    warn.textContent = 'script.google.com 으로 시작하는 주소여야 합니다.';
+    return;
+  }
+  if (!/\/exec$/.test(v)) {
+    out.style.display = 'none';
+    warn.style.display = 'block';
+    warn.textContent = '/exec 로 끝나야 합니다. /dev 로 끝나는 것은 선생님만 열 수 있는 시험용 주소입니다.';
+    return;
+  }
+  warn.style.display = 'none';
+  out.style.display = 'block';
+  document.getElementById('link').textContent = BASE + v;
+}
+
+function copyLink() {
+  var t = document.getElementById('link').textContent;
+  navigator.clipboard.writeText(t).then(function () {
+    var b = event.target; var old = b.textContent;
+    b.textContent = '복사했습니다'; setTimeout(function () { b.textContent = old; }, 1500);
+  }, function () {
+    alert('복사가 안 됐습니다. 아래 주소를 직접 선택해서 복사하세요.');
+  });
+}
+
+document.getElementById('ex').addEventListener('input', build);
+</script>
 </body>
 </html>

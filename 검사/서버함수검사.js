@@ -77,4 +77,13 @@ t('매니페스트에 start_url 이 없다', () => {
   a.equal(m.start_url, undefined, 'start_url 이 들어가면 ?u= 가 잘린다');
 });
 
+t('안내 페이지가 학생 링크를 만들어준다', () => {
+  // 'app.html?u=' 를 사람이 외우게 두면 반드시 잊어버린다.
+  // 안내 페이지에 붙여넣기만 하면 되는 칸이 있어야 한다
+  const idx = fs.readFileSync(dir + '/docs/index.html', 'utf8');
+  a.ok(idx.includes("'app.html?u='"), '링크 생성기가 없다');
+  a.ok(idx.includes('id="ex"'), '주소 입력칸이 없다');
+  a.ok(/\/exec\$/.test(idx) || idx.includes('/exec$'), '/exec 검사가 없다');
+});
+
 console.log('\n통과 ' + n + ' / 실패 0');
