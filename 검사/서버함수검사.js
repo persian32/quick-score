@@ -70,4 +70,11 @@ t('빈 시트에서 범위를 만들려는 곳이 없다', () => {
   a.deepEqual(bad, [], '0행일 때를 안 막은 곳: ' + bad.join(', '));
 });
 
+t('매니페스트에 start_url 이 없다', () => {
+  // start_url 을 적으면 홈 화면 아이콘이 그 주소로 열려 ?u= 가 잘린다.
+  // 그러면 앱이 어느 스프레드시트로 갈지 몰라 주소 입력 화면이 뜬다
+  const m = JSON.parse(fs.readFileSync(dir + '/docs/manifest.webmanifest', 'utf8'));
+  a.equal(m.start_url, undefined, 'start_url 이 들어가면 ?u= 가 잘린다');
+});
+
 console.log('\n통과 ' + n + ' / 실패 0');
