@@ -7,6 +7,7 @@ const src = fs.readFileSync(__dirname + '/../Code.gs', 'utf8');
 const num = k => Number(src.match(new RegExp('const ' + k + ' = (\\d+)'))[1]);
 const MAX_GROUPS = num('MAX_GROUPS'), INIT_SESSIONS = num('INIT_SESSIONS');
 const ROWS_PER_SESSION = num('ROWS_PER_SESSION'), R_FIRST = num('R_FIRST');
+const MAX_STUDENTS = num('MAX_STUDENTS');
 
 // 순수 계산 함수만 떼어 실행 (SpreadsheetApp 불필요)
 eval(src.slice(src.indexOf('function colLock_'), src.indexOf('//  설정 읽기'))
@@ -54,11 +55,18 @@ t('학생이 빠짐없이 정확히 한 그룹에 속한다', () => {
 t('잠금은 B열(2) 고정 — 회차 바로 옆', () => a.equal(colLock_(), 2));
 t('1번 학생은 C열(3)', () => a.equal(colStudent_(1), 3));
 t('25번 학생은 27열', () => a.equal(colStudent_(25), 27));
+t('요약 블록은 학생 자리와 행이 달라 안 겹친다', () => a.equal(colSummary_(1), colStudent_(1)));
 t('그룹1 = 1~4번, 그룹6 = 21~25번', () => {
   a.deepEqual([groupSpan_(25, 4, 1).first, groupSpan_(25, 4, 1).last], [1, 4]);
   a.deepEqual([groupSpan_(25, 4, 6).first, groupSpan_(25, 4, 6).last], [21, 25]);
 });
-t('그룹평균 열은 학생 열 바로 뒤', () => a.equal(colAvg_(25, 1), 28));
+t('그룹평균 열은 학생 자리 40칸 뒤에 고정', () => a.equal(colAvg_(1), 2 + MAX_STUDENTS + 1));
+t('학생수가 달라도 그룹평균 열이 안 움직인다', () => {
+  // 예전에는 실제 학생수 뒤에 붙여서, 학생수를 바꾸면 시트와 설정이 어긋났다.
+  // 고치려면 시트를 지워야 했고 그때 점수가 함께 사라졌다
+  const at = colAvg_(1);
+  for (let n = 4; n <= MAX_STUDENTS; n++) a.equal(colAvg_(1), at, n + '명일 때');
+});
 t('요약 블록은 잠금 열을 덮지 않는다', () => {
   // 잠금 열이 고정 영역이라, 그 위에 숫자가 얹히면 스크롤할 때 오해를 부른다
   for (let j = 1; j <= MAX_GROUPS; j++) a.ok(colSummary_(j) > colLock_(), 'G' + j);
@@ -79,8 +87,8 @@ t('열이 겹치지 않는다', () => {
   const used = new Set([1, colLock_()]);
   const k = groupCount_(25, 4);
   for (let i = 1; i <= 25; i++) { const c = colStudent_(i); a.ok(!used.has(c)); used.add(c); }
-  for (let j = 1; j <= k; j++) { const c = colAvg_(25, j); a.ok(!used.has(c)); used.add(c); }
-  for (let j = k + 1; j <= MAX_GROUPS; j++) { const c = colAvg_(25, j); a.ok(!used.has(c)); used.add(c); }
+  for (let i = 26; i <= MAX_STUDENTS; i++) { const c = colStudent_(i); a.ok(!used.has(c)); used.add(c); }
+  for (let j = 1; j <= MAX_GROUPS; j++) { const c = colAvg_(j); a.ok(!used.has(c)); used.add(c); }
   a.ok(used.has(colLock_()));
 });
 t('그룹 수가 요약 블록 폭(10)을 넘지 않는다', () => {
@@ -91,7 +99,7 @@ t('1회차는 7행, 20회차는 26행', () => {
 });
 t('columnLetter_ 경계값', () => {
   a.equal(columnLetter_(1), 'A'); a.equal(columnLetter_(26), 'Z');
-  a.equal(columnLetter_(27), 'AA'); a.equal(columnLetter_(38), 'AL');
+  a.equal(columnLetter_(27), 'AA'); a.equal(columnLetter_(52), 'AZ');
 });
 
 console.log('\n통과 ' + n + ' / 실패 0');

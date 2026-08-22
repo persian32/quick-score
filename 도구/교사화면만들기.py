@@ -17,6 +17,7 @@ import random
 random.seed(7)
 
 MAX_GROUPS = 10
+MAX_STUDENTS = 40   # Code.gs 와 같음. 학생 자리를 고정 폭으로 두어 학생수가 바뀌어도 열이 안 움직인다
 SESSIONS, SHOW_ROWS = 4, 8
 LOCKED = {1, 2}
 # 실제 앱은 첫 점수가 저장될 때 그 날짜를 A열에 적는다
@@ -38,7 +39,7 @@ def group_sizes(n, g=4):
 COL_LOCK = 2
 def col_student(i): return 2 + i
 def col_summary(j): return col_student(1) + j - 1
-def col_avg(n, j):  return 2 + n + j
+def col_avg(j):     return 2 + MAX_STUDENTS + j
 
 def letter(n):
     s = ''
@@ -76,7 +77,7 @@ def td(txt='', cls='', attr=''):
 def sheet_class(cls, used):
     N = COUNT[cls]
     SIZES = group_sizes(N)
-    LAST_COL = col_avg(N, MAX_GROUPS)
+    LAST_COL = col_avg(MAX_GROUPS)
     K = len(SIZES)
 
     tot = [total_avg(cls, g) for g in range(K)] if used else [None] * K

@@ -14,7 +14,9 @@ const S_LOG = '로그';
 const S_ALL = '전체';
 
 // ── 레이아웃 상수 ──
-const MAX_GROUPS = 10;    // 요약 블록의 고정 폭(B~K열). 반마다 학생수가 달라도 위치가 같아야 '전체' 시트가 참조 가능
+const MAX_GROUPS = 10;    // 요약 블록의 고정 폭. 반마다 학생수가 달라도 위치가 같아야 '전체' 시트가 참조 가능
+const MAX_STUDENTS = 40;  // 학생 자리도 고정 폭. 안 쓰는 열은 숨긴다.
+                          // 학생수를 바꿔도 열이 안 움직이므로 점수를 지키면서 갱신할 수 있다
 const INIT_SESSIONS = 20; // 시트를 처음 만들 때의 회차 수. 앱에서 얼마든지 늘릴 수 있다
 const ROWS_PER_SESSION = 1;
 
@@ -49,8 +51,14 @@ function colStudent_(i) { return 2 + i; }
  */
 function colSummary_(j) { return colStudent_(1) + j - 1; }
 
-/** 회차별 그룹평균 열. 학생 열이 끝난 바로 뒤 */
-function colAvg_(n, j) { return 2 + n + j; }
+/**
+ * 회차별 그룹평균 열. 학생 자리(40칸) 뒤에 고정.
+ *
+ * 예전에는 실제 학생수 뒤에 붙였는데, 그러면 학생수를 바꿀 때 위치가 밀려
+ * 시트와 설정이 어긋나고 그 반이 통째로 안 열렸다. 고치려면 시트를 지워야 했고
+ * 그때 점수가 함께 사라졌다. 고정 폭으로 두면 그런 일이 없다.
+ */
+function colAvg_(j) { return 2 + MAX_STUDENTS + j; }
 
 /**
  * 학생 n명을 g명씩 나눈 결과의 그룹별 인원.
@@ -111,29 +119,24 @@ function dateText_(v) {
  */
 function sessionCount_(sh, c) {
   const rows = sh.getMaxRows() - R_FIRST + 1;
-  const f = sh.getRange(R_FIRST, colAvg_(c.n, 1), rows, 1).getFormulas();
+  const f = sh.getRange(R_FIRST, colAvg_(1), rows, 1).getFormulas();
   var n = f.length;
   for (var i = 0; i < f.length; i++) {
     if (!f[i][0]) { n = i; break; }
   }
   if (n < 1) {
-    // 시트는 만들어질 때의 학생수에 맞춰 열이 짜인다.
-    // 그 뒤 설정의 학생수를 바꾸면 여기서 수식을 못 찾는다
     throw new Error(
-      c.name + ' 시트가 설정과 맞지 않습니다. 설정 시트의 학생수를 바꾸셨다면 ' +
-      c.name + ' 시트를 삭제하고 setup 을 다시 실행해야 합니다. (선생님께 말씀드리세요)');
+      (c ? c.name : '이 반') + ' 시트에 회차 줄이 없습니다. 선생님께 말씀드리세요 — ' +
+      '스프레드시트 메뉴의 quick-score → 설치 / 갱신 을 눌러야 합니다.');
   }
   return n;
 }
 
-/** 이미 만들어진 반 시트가 몇 명 기준으로 짜여 있는지 (머리글의 'N번' 개수) */
-function sheetStudentCount_(sh) {
-  const hdr = sh.getRange(R_HDR, 1, 1, sh.getMaxColumns()).getValues()[0];
-  var n = 0;
-  for (var i = 0; i < hdr.length; i++) {
-    if (/^\d+번$/.test(String(hdr[i]).trim())) n++;
-  }
-  return n;
+/** 이 시트가 quick-score 가 만든 반 시트인지 (머리글로 판별) */
+function looksLikeClassSheet_(sh) {
+  if (sh.getLastRow() < R_HDR) return false;
+  const h = sh.getRange(R_HDR, 1, 1, 2).getValues()[0];
+  return String(h[0]).trim() === '날짜' && String(h[1]).trim() === '잠금';
 }
 
 /** 회차 번호 → 행 번호 */
@@ -201,6 +204,9 @@ function verify_(className, password) {
   }
   if (!c.n || c.n < 1) {
     throw new Error('설정 시트에 ' + c.name + '의 학생수가 비어 있습니다. 선생님께 말씀드리세요.');
+  }
+  if (c.n > MAX_STUDENTS) {
+    throw new Error(c.name + '의 학생수가 ' + c.n + '명입니다. 최대 ' + MAX_STUDENTS + '명까지 가능합니다.');
   }
   return c;
 }
@@ -337,9 +343,9 @@ function addSessions(className, password, add) {
 
   sh.getRange(R_FIRST + cur, 1, add, 1)
     .setNumberFormat('yyyy-mm-dd').setFontWeight('bold').setHorizontalAlignment('center');
-  sh.getRange(R_FIRST + cur, colAvg_(c.n, 1), add, MAX_GROUPS).setBackground('#fff2cc');
+  sh.getRange(R_FIRST + cur, colAvg_(1), add, MAX_GROUPS).setBackground('#fff2cc');
   sh.getRange(R_FIRST + cur, colLock_(), add, 1).insertCheckboxes();
-  sh.getRange(R_FIRST + cur, colStudent_(1), add, c.n).setHorizontalAlignment('center');
+  sh.getRange(R_FIRST + cur, colStudent_(1), add, MAX_STUDENTS).setHorizontalAlignment('center');
 
   refreshGroupFormulas_(sh, c, cur + add);   // 누적 범위를 새 회차까지 넓힌다
   logRow_([new Date(), c.name, '-', '회차추가', cur + '줄', (cur + add) + '줄']);
@@ -546,40 +552,52 @@ function setup() {
   ensureLogSheet_(ss);
 
   const config = getConfig_();
-  const made = [], skipped = [], mismatched = [];
+  const made = [], skipped = [], updated = [], strange = [];
   const ready = [];
 
   config.forEach(function (c) {
-    // 학생수를 아직 안 채운 반은 시트를 만들 수 없다.
-    // 0명으로 그룹을 나누려다 터지므로 여기서 막는다
+    // 학생수를 아직 안 채운 반은 시트를 만들 수 없다
     if (!c.n || c.n < 1) { skipped.push(c.name); return; }
+    if (c.n > MAX_STUDENTS) { strange.push(c.name + '(학생수 ' + c.n + '명, 최대 ' + MAX_STUDENTS + ')'); return; }
     ready.push(c);
 
     const existing = ss.getSheetByName(c.name);
-    if (existing) {
-      // 학생수를 바꾼 뒤에도 옛 시트가 남아 있으면 앱이 그 반을 못 연다
-      const was = sheetStudentCount_(existing);
-      if (was !== c.n) {
-        mismatched.push(c.name + '(시트 ' + was + '명 ↔ 설정 ' + c.n + '명)');
+    if (!existing) {
+      buildClassSheet_(ss, c);
+      made.push(c.name);
+      return;
+    }
+
+    if (!looksLikeClassSheet_(existing)) {
+      // 손으로 만든 빈 시트가 같은 이름을 차지한 경우엔 제대로 다시 세운다.
+      // 내용이 들어 있으면 손대지 않고 알리기만 한다
+      if (existing.getLastRow() <= 1) {
+        ss.deleteSheet(existing);
+        buildClassSheet_(ss, c);
+        made.push(c.name);
+      } else {
+        strange.push(c.name + '(quick-score 시트가 아님)');
       }
       return;
     }
-    buildClassSheet_(ss, c);
-    made.push(c.name);
+
+    // 학생수가 바뀌었어도 열이 안 움직이므로, 수식과 열 표시만 새 설정에 맞춘다.
+    // 점수 칸은 건드리지 않는다
+    refreshGroupFormulas_(existing, c);
+    updated.push(c.name);
   });
 
-  // 시트가 없는 반을 '전체'가 참조하면 #REF! 가 뜬다. 만들어진 반만 넣는다
   buildAllSheet_(ss, ready);
 
   var msg = made.length
     ? '새로 만든 반 시트: ' + made.join(', ')
     : '새로 만든 반 시트 없음';
+  if (updated.length) msg += '\n설정에 맞춰 갱신: ' + updated.join(', ') + ' (점수는 그대로)';
   if (skipped.length) {
     msg += '\n설정 시트에 학생수를 채우고 다시 실행하세요 — 건너뛴 반: ' + skipped.join(', ');
   }
-  if (mismatched.length) {
-    msg += '\n⚠️ 시트와 설정의 학생수가 다릅니다: ' + mismatched.join(', ') +
-           '\n   해당 반 시트를 삭제하고 setup 을 다시 실행하세요. (그 반 점수는 지워집니다)';
+  if (strange.length) {
+    msg += '\n⚠️ 손댈 수 없는 반: ' + strange.join(', ');
   }
   Logger.log('setup 완료. ' + msg);
   return msg;
@@ -647,7 +665,13 @@ function refreshGroupFormulas_(sh, c, sessions) {
   sh.getRange(R_GHDR, colSummary_(1), 1, MAX_GROUPS).setValues([ghdr]);
   sh.getRange(R_TOTAL, colSummary_(1), 1, MAX_GROUPS).setFormulas([totals]);
   sh.getRange(R_RANK, colSummary_(1), 1, MAX_GROUPS).setFormulas([ranks]);
-  sh.getRange(R_HDR, colAvg_(c.n, 1), 1, MAX_GROUPS).setValues([gnames]);
+  sh.getRange(R_HDR, colAvg_(1), 1, MAX_GROUPS).setValues([gnames]);
+
+  // 안 쓰는 학생 열은 숨긴다. 열 자체는 늘 40칸이라 위치가 안 움직인다
+  sh.showColumns(colStudent_(1), MAX_STUDENTS);
+  if (c.n < MAX_STUDENTS) {
+    sh.hideColumns(colStudent_(c.n + 1), MAX_STUDENTS - c.n);
+  }
 
   const perSession = [];
   for (var r = 0; r < sc; r++) {
@@ -660,12 +684,12 @@ function refreshGroupFormulas_(sh, c, sessions) {
     }
     perSession.push(fs);
   }
-  sh.getRange(R_FIRST, colAvg_(c.n, 1), sc, MAX_GROUPS).setFormulas(perSession);
+  sh.getRange(R_FIRST, colAvg_(1), sc, MAX_GROUPS).setFormulas(perSession);
 }
 
 function buildClassSheet_(ss, c) {
   const sh = ss.insertSheet(c.name);
-  const lastCol = colAvg_(c.n, MAX_GROUPS);
+  const lastCol = colAvg_(MAX_GROUPS);
 
   // 새 시트는 기본 26열뿐이다. 학생이 많으면 열이 모자라 죽는다
   if (sh.getMaxColumns() < lastCol) {
@@ -685,7 +709,7 @@ function buildClassSheet_(ss, c) {
 
   // 원본 표 머리글 (G열 이름은 refreshGroupFormulas_ 가 채운다)
   const hdr = ['날짜', '잠금'];
-  for (var i = 1; i <= c.n; i++) hdr.push(i + '번');
+  for (var i = 1; i <= MAX_STUDENTS; i++) hdr.push(i + '번');
   for (var m = 1; m <= MAX_GROUPS; m++) hdr.push('');   // G열 이름은 refreshGroupFormulas_ 가 채운다
   sh.getRange(R_HDR, 1, 1, hdr.length).setValues([hdr])
     .setFontWeight('bold').setBackground('#e8eaed').setHorizontalAlignment('center');
@@ -693,7 +717,7 @@ function buildClassSheet_(ss, c) {
   // A열은 시험 날짜. 도우미가 그 회차에 처음 점수를 저장할 때 자동으로 적힌다
   sh.getRange(R_FIRST, 1, INIT_SESSIONS, 1)
     .setNumberFormat('yyyy-mm-dd').setFontWeight('bold').setHorizontalAlignment('center');
-  sh.getRange(R_FIRST, colAvg_(c.n, 1), INIT_SESSIONS, MAX_GROUPS).setBackground('#fff2cc');
+  sh.getRange(R_FIRST, colAvg_(1), INIT_SESSIONS, MAX_GROUPS).setBackground('#fff2cc');
   sh.getRange(R_FIRST, colLock_(), INIT_SESSIONS, 1).insertCheckboxes();
 
   refreshGroupFormulas_(sh, c, INIT_SESSIONS);
@@ -703,7 +727,7 @@ function buildClassSheet_(ss, c) {
   for (var w = colStudent_(1); w <= lastCol; w++) sh.setColumnWidth(w, 38);
   sh.setFrozenRows(R_HDR);
   sh.setFrozenColumns(2);   // 회차 + 잠금은 스크롤해도 항상 보인다
-  sh.getRange(R_FIRST, colStudent_(1), INIT_SESSIONS, c.n).setHorizontalAlignment('center');
+  sh.getRange(R_FIRST, colStudent_(1), INIT_SESSIONS, MAX_STUDENTS).setHorizontalAlignment('center');
 }
 
 function buildAllSheet_(ss, config) {

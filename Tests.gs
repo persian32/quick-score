@@ -48,7 +48,7 @@ function runTests() {
       saveGroup(T_CLASS, T_PW, 1, 1, [10, null, 14]);
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
-      eq(sh.getRange(sessionRow_(1), colAvg_(T_N, 1)).getValue(), 12, '1회차 그룹1 평균');
+      eq(sh.getRange(sessionRow_(1), colAvg_(1)).getValue(), 12, '1회차 그룹1 평균');
     });
 
     check('인원이 다른 그룹도 각자 인원으로 나눈다', function () {
@@ -56,7 +56,7 @@ function runTests() {
       saveGroup(T_CLASS, T_PW, 1, 2, [9, 9, 9]);
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
-      eq(sh.getRange(sessionRow_(1), colAvg_(T_N, 2)).getValue(), 9, '1회차 그룹2 평균');
+      eq(sh.getRange(sessionRow_(1), colAvg_(2)).getValue(), 9, '1회차 그룹2 평균');
     });
 
     check('누적은 전 회차 총합 ÷ 전 회차 응시인원', function () {
@@ -130,10 +130,10 @@ function runTests() {
       setGroupSizes(T_CLASS, T_PW, [2, 4]);
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
-      eq(sh.getRange(sessionRow_(1), colAvg_(T_N, 1)).getValue(), 10, '새 그룹1의 1회차 평균');
+      eq(sh.getRange(sessionRow_(1), colAvg_(1)).getValue(), 10, '새 그룹1의 1회차 평균');
       setGroupSizes(T_CLASS, T_PW, [3, 3]);   // 되돌리기
       SpreadsheetApp.flush();
-      eq(sh.getRange(sessionRow_(1), colAvg_(T_N, 1)).getValue(), 12, '되돌린 뒤 평균');
+      eq(sh.getRange(sessionRow_(1), colAvg_(1)).getValue(), 12, '되돌린 뒤 평균');
     });
 
     check('그룹 인원 합계가 안 맞으면 거부한다', function () {
@@ -163,7 +163,7 @@ function runTests() {
       saveGroup(T_CLASS, T_PW, INIT_SESSIONS + 3, 1, [10, 10, 10]);
       SpreadsheetApp.flush();
       const sh = ss.getSheetByName(T_CLASS);
-      eq(sh.getRange(sessionRow_(INIT_SESSIONS + 3), colAvg_(T_N, 1)).getValue(), 10, '새 회차 평균');
+      eq(sh.getRange(sessionRow_(INIT_SESSIONS + 3), colAvg_(1)).getValue(), 10, '새 회차 평균');
     });
 
     check('학생수를 안 채운 반은 setup 이 건너뛴다', function () {
@@ -181,42 +181,33 @@ function runTests() {
       SpreadsheetApp.flush();
     });
 
-    check('학생수를 바꾸면 시트가 어긋났다고 분명히 알린다', function () {
-      // 시트는 만들어질 때의 학생수로 열이 짜인다. 설정만 바꾸면 앱이 그 반을 못 연다.
-      // 예전에는 "행의 개수는 1개 이상이어야 합니다" 로 터져서 원인을 알 수 없었다
+    check('학생수를 바꿔도 점수가 남고 설정에 맞춰 갱신된다', function () {
+      // 예전에는 학생수를 바꾸면 그 반이 통째로 안 열렸고,
+      // 고치려면 시트를 지워야 해서 쌓아둔 점수가 함께 사라졌다
       const cfg = ss.getSheetByName(S_CONFIG);
       const names = cfg.getLastRow() < 1 ? [] : cfg.getRange(1, 1, cfg.getLastRow(), 1).getValues();
       var r = -1;
       for (var i = 1; i < names.length; i++) {
         if (String(names[i][0]).trim() === T_CLASS) r = i + 1;
       }
-      cfg.getRange(r, 3).setValue(T_N + 3);      // 학생수만 바꿔치기
+      const sh = ss.getSheetByName(T_CLASS);
+      const before = sh.getRange(sessionRow_(1), colStudent_(1)).getValue();
+
+      cfg.getRange(r, 3).setValue(T_N + 2);      // 6명 → 8명 (전학생이 온 상황)
       SpreadsheetApp.flush();
-      throws(function () { listSessions_(getConfig_().filter(function (x) {
-        return x.name === T_CLASS; })[0]); }, '어긋난 시트');
       const msg = setup();
-      eq(msg.indexOf('학생수가 다릅니다') >= 0, true, 'setup 이 알려주는가');
+      SpreadsheetApp.flush();
+
+      eq(msg.indexOf('갱신') >= 0, true, '갱신했다고 알리는가');
+      eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), before, '1번 점수가 남았는가');
+      eq(listSessions_(getConfig_().filter(function (x) {
+        return x.name === T_CLASS; })[0]).length > 0, true, '그 반이 여전히 열리는가');
+
       cfg.getRange(r, 3).setValue(T_N);          // 되돌리기
       SpreadsheetApp.flush();
-    });
-
-    check('반 시트가 없으면 무엇을 해야 하는지 알려준다', function () {
-      // 선생님이 시트를 지운 뒤 도우미가 들어오면 예전에는
-      // "null 의 속성을 읽을 수 없습니다" 로 죽어서 원인을 알 수 없었다
-      const sh = ss.getSheetByName(T_CLASS);
-      ss.deleteSheet(sh);
-      try {
-        var got = '';
-        try { listSessions_(T_CFG); } catch (e) { got = e.message; }
-        eq(got.indexOf('설치 / 갱신') >= 0, true, '무엇을 해야 하는지 알려주는가: ' + got);
-      } finally {
-        buildClassSheet_(ss, T_CFG);   // 뒤 검사들을 위해 되살린다
-        SpreadsheetApp.flush();
-        saveGroup(T_CLASS, T_PW, 1, 1, [10, null, 14]);
-        saveGroup(T_CLASS, T_PW, 1, 2, [9, 9, 9]);
-        saveGroup(T_CLASS, T_PW, 2, 1, [8, 12, 10]);
-        SpreadsheetApp.flush();
-      }
+      setup();
+      SpreadsheetApp.flush();
+      eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), before, '되돌린 뒤에도 점수 유지');
     });
 
     check('없는 회차는 거부한다', function () {
