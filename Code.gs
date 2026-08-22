@@ -607,6 +607,17 @@ function setup() {
     updated.push(c.name);
   });
 
+  // 설정에서 빠졌는데 시트만 남은 반을 알린다.
+  // 지우지는 않는다 — 한 학기치 점수가 줄 하나 지운 것으로 사라지면 안 된다
+  const known = {};
+  config.forEach(function (c) { known[c.name] = true; });
+  const orphan = [];
+  ss.getSheets().forEach(function (sh) {
+    const nm = sh.getName();
+    if (nm === S_CONFIG || nm === S_LOG || nm === S_ALL) return;
+    if (!known[nm] && looksLikeClassSheet_(sh)) orphan.push(nm);
+  });
+
   buildAllSheet_(ss, ready);
 
   var msg = made.length
@@ -618,6 +629,10 @@ function setup() {
   }
   if (regrouped.length) {
     msg += '\n그룹 인원을 다시 나눴습니다: ' + regrouped.join(', ');
+  }
+  if (orphan.length) {
+    msg += '\n📄 설정에 없지만 남아 있는 시트: ' + orphan.join(', ') +
+           '\n   앱에는 안 나옵니다. 정말 지우려면 탭을 직접 삭제하세요.';
   }
   if (strange.length) {
     msg += '\n⚠️ 손댈 수 없는 반: ' + strange.join(', ');

@@ -145,7 +145,10 @@
       </div>
       <div class="err" id="e-input"></div>
     </div>
-    <div class="note">점수를 비워두면 <b>결석</b>으로 처리되어<br>평균 계산에서 빠집니다.</div>
+    <button class="ghost" onclick="exitSession()">← 시험 목록으로</button>
+    <div class="note">지금 화면은 저장하고 나갑니다.<br>
+      점수를 비워두면 <b>결석</b>으로 처리되어 평균에서 빠집니다.<br>
+      위의 <b>●</b> 를 누르면 그 그룹으로 바로 갑니다.</div>
   </section>
 
   <!-- ③-b 그룹 인원 조정 -->
@@ -448,6 +451,11 @@ function refreshSum() {
   var sum = nums.reduce(function (a, b) { return a + b; }, 0);
   $('sum').innerHTML = '합 ' + sum + ' ÷ ' + nums.length + '명 = <b>' +
                        (Math.round(sum / nums.length * 10) / 10) + '</b>';
+}
+
+/** 중간에 나가기. 보던 그룹만 확인하고 나올 수 있어야 한다 */
+function exitSession() {
+  saveThen(function () { openSessions(); });
 }
 
 /** 점을 눌러 그 그룹으로. 지금 화면 것은 저장하고 옮긴다 */
