@@ -581,6 +581,12 @@ function setup() {
       return;
     }
 
+    // 옛 구조(학생수만큼만 열을 만들던 시절)로 만들어진 시트는 폭이 모자라 갱신할 수 없다
+    if (existing.getMaxColumns() < colAvg_(MAX_GROUPS)) {
+      strange.push(c.name + '(옛 구조 — 시트를 삭제하고 다시 눌러주세요)');
+      return;
+    }
+
     // 학생수가 바뀌었어도 열이 안 움직이므로, 수식과 열 표시만 새 설정에 맞춘다.
     // 점수 칸은 건드리지 않는다
     refreshGroupFormulas_(existing, c);
