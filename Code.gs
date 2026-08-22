@@ -72,7 +72,8 @@ function groupSizes_(n, g) {
   if (Array.isArray(g)) {
     const total = g.reduce(function (a, b) { return a + b; }, 0);
     if (total !== n) {
-      throw new Error('설정 시트를 확인하세요: 그룹 인원 합계 ' + total + '명이 학생수 ' + n + '명과 다릅니다.');
+      throw new Error('그룹 인원 합계 ' + total + '명이 학생수 ' + n + '명과 다릅니다. ' +
+                      '선생님께 말씀드리세요 — quick-score → 설치 / 갱신 을 누르면 정리됩니다.');
     }
     return g;
   }
@@ -552,17 +553,16 @@ function setup() {
   ensureLogSheet_(ss);
 
   const config = getConfig_();
-  const made = [], skipped = [], updated = [], strange = [];
+  const made = [], skipped = [], updated = [], strange = [], regrouped = [];
   const ready = [];
 
   config.forEach(function (c) {
     // 학생수를 아직 안 채운 반은 시트를 만들 수 없다
     if (!c.n || c.n < 1) { skipped.push(c.name); return; }
     if (c.n > MAX_STUDENTS) { strange.push(c.name + '(학생수 ' + c.n + '명, 최대 ' + MAX_STUDENTS + ')'); return; }
-    ready.push(c);
-
     const existing = ss.getSheetByName(c.name);
     if (!existing) {
+      ready.push(c);
       buildClassSheet_(ss, c);
       made.push(c.name);
       return;
@@ -572,6 +572,7 @@ function setup() {
       // 손으로 만든 빈 시트가 같은 이름을 차지한 경우엔 제대로 다시 세운다.
       // 내용이 들어 있으면 손대지 않고 알리기만 한다
       if (existing.getLastRow() <= 1) {
+        ready.push(c);
         ss.deleteSheet(existing);
         buildClassSheet_(ss, c);
         made.push(c.name);
@@ -579,6 +580,18 @@ function setup() {
         strange.push(c.name + '(quick-score 시트가 아님)');
       }
       return;
+    }
+
+    // 그룹 인원을 직접 적어둔 반에서 학생수가 바뀌면 합계가 안 맞아 그 반이 막힌다.
+    // 학생수 쪽이 더 최근 의도이므로, 그룹 목록을 자동 분배로 되돌리고 알린다
+    if (Array.isArray(c.g)) {
+      const listed = c.g.reduce(function (a, b) { return a + b; }, 0);
+      if (listed !== c.n) {
+        const per = Math.max(1, Math.round(c.n / c.g.length));
+        writeConfigGroups_(c.name, String(per));
+        c = getConfig_().filter(function (x) { return x.name === c.name; })[0];
+        regrouped.push(c.name + '(' + listed + '명 → 학생수 ' + c.n + '명에 맞춰 ' + per + '명씩)');
+      }
     }
 
     // 옛 구조(학생수만큼만 열을 만들던 시절)로 만들어진 시트는 폭이 모자라 갱신할 수 없다
@@ -589,6 +602,7 @@ function setup() {
 
     // 학생수가 바뀌었어도 열이 안 움직이므로, 수식과 열 표시만 새 설정에 맞춘다.
     // 점수 칸은 건드리지 않는다
+    ready.push(c);
     refreshGroupFormulas_(existing, c);
     updated.push(c.name);
   });
@@ -601,6 +615,9 @@ function setup() {
   if (updated.length) msg += '\n설정에 맞춰 갱신: ' + updated.join(', ') + ' (점수는 그대로)';
   if (skipped.length) {
     msg += '\n설정 시트에 학생수를 채우고 다시 실행하세요 — 건너뛴 반: ' + skipped.join(', ');
+  }
+  if (regrouped.length) {
+    msg += '\n그룹 인원을 다시 나눴습니다: ' + regrouped.join(', ');
   }
   if (strange.length) {
     msg += '\n⚠️ 손댈 수 없는 반: ' + strange.join(', ');

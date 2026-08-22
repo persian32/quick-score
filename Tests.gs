@@ -193,21 +193,27 @@ function runTests() {
       const sh = ss.getSheetByName(T_CLASS);
       const before = sh.getRange(sessionRow_(1), colStudent_(1)).getValue();
 
-      cfg.getRange(r, 3).setValue(T_N + 2);      // 6명 → 8명 (전학생이 온 상황)
+      // 그룹 인원을 직접 적어둔 상태에서 학생수를 늘린다 (전학생이 온 상황)
+      cfg.getRange(r, 4).setValue('3,3');
+      cfg.getRange(r, 3).setValue(T_N + 2);      // 6명 → 8명
       SpreadsheetApp.flush();
       const msg = setup();
       SpreadsheetApp.flush();
 
       eq(msg.indexOf('갱신') >= 0, true, '갱신했다고 알리는가');
+      eq(msg.indexOf('다시 나눴습니다') >= 0, true, '안 맞는 그룹 목록을 정리했다고 알리는가');
+      eq(String(cfg.getRange(r, 4).getValue()).trim(), '4', '자동 분배로 되돌렸는가');
       eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), before, '1번 점수가 남았는가');
       eq(listSessions_(getConfig_().filter(function (x) {
         return x.name === T_CLASS; })[0]).length > 0, true, '그 반이 여전히 열리는가');
 
       cfg.getRange(r, 3).setValue(T_N);          // 되돌리기
+      cfg.getRange(r, 4).setValue(T_G);
       SpreadsheetApp.flush();
       setup();
       SpreadsheetApp.flush();
       eq(sh.getRange(sessionRow_(1), colStudent_(1)).getValue(), before, '되돌린 뒤에도 점수 유지');
+      eq(groupCount_(T_N, T_G), 2, '되돌린 뒤 그룹 구성');
     });
 
     check('없는 회차는 거부한다', function () {
